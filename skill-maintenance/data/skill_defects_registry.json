@@ -1,0 +1,46 @@
+{
+  "defects": [
+    {
+      "id": "DEF-001",
+      "skill": "io-ring-orchestrator-T28",
+      "severity": "high",
+      "title": "build_confirmed_config assumes GUI workflow",
+      "description": "Orchestrator Step 8 calls build_io_ring_confirmed_config which requires the GUI/frontend confirmation flow. In CLI mode it either fails or is unnecessary. Generators can consume the intent graph directly with consume_confirmed_only=False.",
+      "status": "fixed",
+      "created": "2026-03-16T00:00:00+00:00",
+      "fix_description": "Added skip_editor_confirmation parameter to AMS-IO-Agent confirmed_config_builder (T28 & T180). When True, filler insertion runs but GUI editor wait is skipped. Propagated through io_ring_generator_tool.build_io_ring_confirmed_config. CLI workflows can now use: build_io_ring_confirmed_config(..., skip_editor_confirmation=True) or skip Step 8 entirely and use consume_confirmed_only=False in generators.",
+      "fixed_date": "2026-03-16"
+    },
+    {
+      "id": "DEF-002",
+      "skill": "io-ring-orchestrator-T28",
+      "severity": "high",
+      "title": "check_virtuoso_connection function does not exist",
+      "description": "Orchestrator Step 10 and scripts/check_virtuoso_connection.py import check_virtuoso_connection from src.tools.io_ring_generator_tool, but this function does not exist in that module. The correct approach is to use rb_exec from src.tools.bridge_utils.",
+      "status": "fixed",
+      "created": "2026-03-16T00:00:00+00:00",
+      "fix_description": "Updated scripts/check_virtuoso_connection.py to use rb_exec from src.tools.bridge_utils instead of non-existent check_virtuoso_connection function. Now executes simple SKILL command 'sprintf(nil \"test\")' to verify Virtuoso connection via ramic_bridge.",
+      "fixed_date": "2026-03-16"
+    },
+    {
+      "id": "DEF-003",
+      "skill": "io-ring-orchestrator-T28",
+      "severity": "medium",
+      "title": "Python virtual environment not specified",
+      "description": "The orchestrator and wrapper scripts do not specify that AMS-IO-Agent's venv must be used. System python3 lacks required deps (smolagents etc). The venv at AMS-IO-Agent/venv/bin/python3 has them. SKILL.md and scripts should document or enforce venv usage.",
+      "status": "fixed",
+      "created": "2026-03-16T00:00:00+00:00",
+      "fix_description": "Added comprehensive venv documentation to SKILL.md Prerequisites section. Documented that AMS-IO-Agent/venv/bin/python3 must be used for Tier 2 tools. Explained that wrapper scripts handle venv automatically via sys.path manipulation and AMS_IO_AGENT_PATH.",
+      "fixed_date": "2026-03-16"
+    }
+  ],
+  "config": {
+    "cache_root": "~/.claude/plugins/cache/anthropic-agent-skills/claude-api/b0cbd3df1533/skills",
+    "repo_root": "~/AMS-IO-Agent_processes_combined/claude-code-skills",
+    "ams_root": "~/AMS-IO-Agent_processes_combined/AMS-IO-Agent"
+  },
+  "metadata": {
+    "last_updated": "2026-03-16T00:00:00+00:00",
+    "next_id": 4
+  }
+}
