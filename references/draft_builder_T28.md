@@ -34,6 +34,19 @@ Required inputs:
 - `placement_order` (`clockwise` or `counterclockwise`; default `counterclockwise` if user does not specify)
 - optional inner-pad insertion descriptions
 
+Optional on-demand wizard inputs (when Step 2 requests clarification):
+
+- `geometry.placement_order`
+- `geometry.starting_side`
+- `geometry.width`
+- `geometry.height`
+
+Input precedence for draft build:
+
+1. Explicit user structural input
+2. On-demand wizard `geometry` fields
+3. Draft default fallback (`placement_order = counterclockwise` only when still unspecified)
+
 ## Output Contract (Draft JSON)
 
 ```json
@@ -128,6 +141,27 @@ Do not auto-adjust to `side_{i+1}_{j+1}` or any guessed index pair.
 
 ## Signal-to-Position Mapping
 
+### Starting-Side Rotation Rule
+
+Base traversal order is defined by `placement_order`:
+
+- clockwise base: `[top, right, bottom, left]`
+- counterclockwise base: `[left, bottom, right, top]`
+
+If `starting_side` is provided (from explicit user input or wizard geometry), rotate the base traversal so index 0 starts at `starting_side`, while preserving traversal direction.
+
+Examples:
+
+- clockwise + `starting_side=right` -> `[right, bottom, left, top]`
+- counterclockwise + `starting_side=top` -> `[top, left, bottom, right]`
+
+Chunk sizes follow side type after rotation:
+
+- top/bottom chunks use `width`
+- left/right chunks use `height`
+
+If `starting_side` is absent, use base traversal order directly.
+
 ### Clockwise
 
 Signal list mapping:
@@ -171,6 +205,7 @@ Do not use global name lookup for repeated names.
 
 - `ring_config.width` and `ring_config.height` exist and are valid
 - `placement_order` is valid (`clockwise` or `counterclockwise`)
+- if `starting_side` exists, it is one of `top/right/bottom/left` and mapping uses rotated traversal
 - every instance has `name`, `position`, `type`
 - `type` is only `pad` or `inner_pad`
 - no `corner` instances exist in draft
@@ -208,6 +243,7 @@ Phase 2 MUST treat the following fields as immutable unless reporting hard input
 
 - confirm `width` and `height` are positive integers
 - confirm `placement_order` is `clockwise` or `counterclockwise`
+- if provided, confirm `starting_side` is `top/right/bottom/left`
 - parse outer signal list first and verify outer count equals `2 * width + 2 * height`
 - parse inner-pad insertion requests into ordered tuples: `(inner_name, endpoint_a, endpoint_b)`
 - reject malformed insertion statements instead of guessing

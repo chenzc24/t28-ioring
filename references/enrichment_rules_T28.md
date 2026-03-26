@@ -11,8 +11,28 @@
 - **Placement sequence**: Process one side at a time, place signals and pads simultaneously
 - **Voltage domain configuration**:
   - **If user explicitly specifies**: MUST strictly follow user's specification exactly, do not modify or ask for confirmation
-  - **If user does NOT specify**: AI must analyze and create voltage domains automatically - every signal must belong to a voltage domain, and every voltage domain must have one PVSS3 provider and one PVDD3 provider (one provider pair), do NOT ask user
-- **Workflow execution**: Automatically determine workflow entry point based on user input (intent graph file vs requirements), proceed through all steps without asking user for choices
+  - **If user does NOT specify**: AI must analyze and create voltage domains automatically - every signal must belong to a voltage domain, and every voltage domain must have one PVSS3 provider and one PVDD3 provider (one provider pair)
+- **Workflow execution**: Automatically determine workflow entry point based on user input (intent graph file vs requirements), proceed through all steps.
+
+### On-Demand Clarification Trigger (Owned by Draft/Enrichment)
+
+- **Trigger ownership**: The decision of whether to ask the user is owned by draft/enrichment execution, NOT by wizard.
+- **Wizard role**: `wizard_T28.md` only defines question templates and output schema.
+
+Must trigger targeted clarification when any of these ambiguity conditions is true:
+1. **Device/Pin ambiguity**: Device type or required pin family cannot be uniquely determined from explicit constraints plus rule inference.
+2. **Direction ambiguity**: Digital IO direction cannot be resolved with sufficient confidence from explicit constraints and direction rules.
+3. **Voltage-domain boundary ambiguity**: A signal/block cannot be uniquely assigned to one analog voltage domain range.
+
+Clarification callback protocol:
+1. Pause current step at the ambiguity point.
+2. Ask only the minimum questions needed for that ambiguity.
+3. Merge returned `wizard_constraints` and continue from the paused point.
+
+Constraint precedence (when no immutable-structure conflict exists):
+1. Explicit user prompt constraints
+2. On-demand `wizard_constraints`
+3. Default enrichment inference
 
 ### Workflow Steps
 - G1: Signal Classification & Device Selection
@@ -228,7 +248,7 @@ All pin connections for digital signals (both digital IO and digital power/groun
     - **Otherwise**: Use `PVDD3AC`/`PVSS3AC` for this domain's provider pair
 
 **Priority 2: Automatic Analysis (when user does NOT specify)**
-- **When user does NOT specify voltage domain**: AI must analyze and create voltage domains automatically - do NOT ask user for voltage domain information
+- **When user does NOT specify voltage domain**: AI must analyze and create voltage domains automatically; only invoke user questions when the "On-Demand Clarification Trigger" conditions are met
 - **Simplified Approach - Single Voltage Domain for All Analog Pads**:
   - **Default behavior**: All analog signals (analog IO and analog power/ground) belong to **ONE voltage domain**
   - **Ensure continuity**: All analog signals must form a contiguous block in placement order. **Ring structure continuity applies** (see "Universal Ring Structure Principle" above)
