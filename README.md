@@ -290,7 +290,7 @@ io-ring-orchestrator-T28/
 │   ├── wizard_T28.md                 # Wizard interaction guide
 │   └── image_vision_instruction.md   # Screenshot interpretation guide
 │
-└── 28nm_wirebonding/                 # Built-in wirebonding test cases
+└── T28_Testbench/                    # Built-in wirebonding test cases
     ├── IO_28nm_<name>.txt            # Ready-made prompt files (paste into Claude Code)
     └── golden_output/
         └── IO_28nm_<name>/           # Reference outputs per test case
@@ -399,10 +399,10 @@ View: schematic and layout
 
 ### Running the Built-in Wirebonding Test Cases
 
-The `28nm_wirebonding/` directory contains **30 ready-made test cases** covering a range of die sizes, ring types, and signal configurations. Use them to verify your installation or explore what the skill can do.
+The `T28_Testbench/` directory contains **30 ready-made test cases** covering a range of die sizes, ring types, and signal configurations. Use them to verify your installation or explore what the skill can do.
 
 ```
-28nm_wirebonding/
+T28_Testbench/
 ├── IO_28nm_<name>.txt        ← prompt files (copy and paste directly into Claude Code)
 └── golden_output/
     └── IO_28nm_<name>/       ← reference outputs (intent graph, layout .il, screenshots)
@@ -411,7 +411,7 @@ The `28nm_wirebonding/` directory contains **30 ready-made test cases** covering
 **To run a test case**, copy the contents of any `.txt` file and paste it as your prompt in Claude Code:
 
 ```bash
-cat 28nm_wirebonding/IO_28nm_3x3_single_ring_mixed.txt
+cat T28_Testbench/IO_28nm_3x3_single_ring_mixed.txt
 ```
 
 Then paste the output into Claude Code. The skill will run the full pipeline and produce schematic + layout.
