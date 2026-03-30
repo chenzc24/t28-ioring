@@ -435,6 +435,14 @@ All pin connections for digital signals (both digital IO and digital power/groun
 - **Signal name determination**:
   - If user specifies digital domain provider names, use the user-specified low voltage VSS signal name (e.g., "IOVSS" if user specifies "VSS/IOVSS/IOVDDL/IOVDDH")
   - If user does not specify, use the default digital low voltage VSS signal name (e.g., "GIOL")
+
+**CRITICAL - Device Suffix Rule Based on Position**:
+- **Right and Left side devices** must append suffix **`_H_G`** to the base device name
+- **Top and Bottom side devices** must append suffix **`_V_G`** to the base device name
+- **Examples**:
+  - Base device `PDB3AC` at position `left_0` → device field: `PDB3AC_H_G`
+  - Base device `PVDD1DGZ` at position `top_0` → device field: `PVDD1DGZ_V_G`
+
 #### Analog IO (PDB3AC)
 **Regular signal (no `<>`):**
 ```json
