@@ -31,6 +31,26 @@ import time
 import errno
 import traceback
 
+# Python 3 compatibility helpers
+PY3 = sys.version_info[0] >= 3
+
+def _stdin_read(n=1):
+    """Read n bytes from stdin using binary buffer in Python 3."""
+    if PY3:
+        return sys.stdin.buffer.read(n)
+    return sys.stdin.read(n)
+
+def _stdout_write_bytes(data):
+    """Write bytes/str to stdout as binary."""
+    if isinstance(data, str):
+        data = data.encode('utf-8')
+    if PY3:
+        sys.stdout.buffer.write(data)
+        sys.stdout.buffer.flush()
+    else:
+        sys.stdout.write(data)
+        sys.stdout.flush()
+
 # Python 2.7 compatibility: try to import psutil, fallback to manual PID detection
 try:
     import psutil
@@ -131,7 +151,7 @@ def read_until_delimiter(start_ok=b'\x02', start_err=b'\x15', end=b'\x1e'):
     # Wait for start marker
     while True:
         try:
-            ch = sys.stdin.read(1)
+            ch = _stdin_read(1)
             if ch in [start_ok, start_err]:
                 break
         except IOError as e:
@@ -144,31 +164,27 @@ def read_until_delimiter(start_ok=b'\x02', start_err=b'\x15', end=b'\x1e'):
             else:
                 raise
         if timeout_flag:
-            # Python 2.7 compatibility: return string directly
             return "\x15TimeoutError"
-    
-    # Python 2.7 compatibility: convert string to bytes for bytearray
-    if isinstance(ch, str):
-        result.extend(ch.encode('latin1'))
-    else:
+
+    if isinstance(ch, (bytes, bytearray)):
         result.extend(ch)
-    
+    else:
+        result.extend(ch.encode('latin1'))
+
     # Read content until end marker
     while True:
         try:
-            ch = sys.stdin.read(1)
+            ch = _stdin_read(1)
             if timeout_flag:
-                # Python 2.7 compatibility: return string directly
                 return "\x15TimeoutError"
-            if not ch:  # Python 2.7: empty string means no data
+            if not ch:  # empty means no data
                 continue
             if ch == end:
                 break
-            # Python 2.7 compatibility: convert string to bytes for bytearray
-            if isinstance(ch, str):
-                result.extend(ch.encode('latin1'))
-            else:
+            if isinstance(ch, (bytes, bytearray)):
                 result.extend(ch)
+            else:
+                result.extend(ch.encode('latin1'))
         except IOError as e:
             if e.errno == errno.EAGAIN or e.errno == errno.EWOULDBLOCK:
                 # No data available, check timeout and continue
@@ -210,26 +226,20 @@ def handle_external_connection(conn, addr):
         # Reset timeout flag
         timeout_flag = False
         
-        # Send skill script to Virtuoso
-        # Python 2.7 compatibility: ensure skill_code is string
-        if hasattr(skill_code, 'encode'):  # Check if it's unicode
-            skill_code = skill_code.encode('utf-8')
-        
         # Clear stdin buffer before writing (non-blocking read until empty)
-  
         while True:
             try:
-                ch = sys.stdin.read(1)
-                if not ch:  # No more data
+                ch = _stdin_read(1)
+                if not ch:
                     break
             except IOError as e:
                 if e.errno == errno.EAGAIN or e.errno == errno.EWOULDBLOCK:
-                    break  # No data available
+                    break
                 else:
-                    break  # Other error, stop clearing
-        
-        sys.stdout.write(skill_code)
-        sys.stdout.flush()
+                    break
+
+        # Send skill script to Virtuoso
+        _stdout_write_bytes(skill_code)
         
         # Start watchdog timer
         watchdog_timer = threading.Timer(timeout_seconds, watchdog_callback)
@@ -246,13 +256,13 @@ def handle_external_connection(conn, addr):
         # Cancel watchdog timer
         watchdog_timer.cancel()
         
-        # Python 2.7 compatibility: handle returnData properly
+        # Send response back to client (always bytes)
         if isinstance(returnData, bytearray):
-            conn.sendall(str(returnData))
-        elif hasattr(returnData, 'encode'):  # Check if it's unicode
-            conn.sendall(returnData.encode('utf-8'))
-        else:
+            conn.sendall(bytes(returnData))
+        elif isinstance(returnData, bytes):
             conn.sendall(returnData)
+        else:
+            conn.sendall(returnData.encode('utf-8'))
             
     except ValueError as e:
         # Python 2.7 compatibility: handle JSON decode errors
