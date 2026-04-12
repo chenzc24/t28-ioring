@@ -42,16 +42,24 @@ Required conventions:
 
 ### Step 0: Directory Setup & Parse Input
 
+**IMPORTANT**: Before setting up any paths, read and source the `.env` file located in this skill's directory. The `.env` file contains critical configuration including `AMS_OUTPUT_ROOT`, `CDS_LIB_PATH_28`, and bridge connection settings. These values MUST take precedence over defaults.
+
 ```bash
-# Resolve stable workspace root (prefer AMS_IO_AGENT_PATH, fallback to current directory)
+# 1. Source .env from skill directory FIRST (values here override defaults)
+SKILL_DIR="<skill_directory>"   # e.g. .claude/skills/io-ring-orchestrator-T28
+set -a; source "${SKILL_DIR}/.env" 2>/dev/null || true; set +a
+
+# 2. Resolve stable workspace root (prefer AMS_IO_AGENT_PATH, fallback to current directory)
 if [ -n "${AMS_IO_AGENT_PATH:-}" ]; then
   WORK_ROOT="${AMS_IO_AGENT_PATH}"
 else
   WORK_ROOT="$(pwd)"
 fi
 
-# Unified output root for script-level artifacts (DRC/LVS/PEX/screenshots fallback)
-export AMS_OUTPUT_ROOT="${WORK_ROOT}/output"
+# 3. Unified output root: prefer .env AMS_OUTPUT_ROOT, then fallback to ${WORK_ROOT}/output
+if [ -z "${AMS_OUTPUT_ROOT:-}" ]; then
+  export AMS_OUTPUT_ROOT="${WORK_ROOT}/output"
+fi
 mkdir -p "${AMS_OUTPUT_ROOT}/generated"
 
 # Create per-run directory once and reuse it across all steps
