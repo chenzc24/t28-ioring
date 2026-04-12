@@ -1,0 +1,1605 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>IO Ring Layout Editor</title>
+  <!-- React served locally — no CDN dependencies -->
+  <script src="/vendor/react.min.js"></script>
+  <script src="/vendor/react-dom.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+    .layout-editor-root { font-size: 14px; }
+    details > summary { list-style: none; }
+    details > summary::-webkit-details-marker { display: none; }
+    select, input { outline: none; }
+
+    .editor-root {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      background: #1a1a2e;
+      color: #e0e0e0;
+    }
+    .toolbar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      background: #16213e;
+      border-bottom: 1px solid #0f3460;
+      flex-shrink: 0;
+      flex-wrap: wrap;
+    }
+    .toolbar-btn {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 5px 10px;
+      background: #0f3460;
+      border: 1px solid #1a4a8a;
+      border-radius: 4px;
+      color: #e0e0e0;
+      cursor: pointer;
+      font-size: 12px;
+      transition: background 0.15s;
+    }
+    .toolbar-btn:hover { background: #1a4a8a; }
+    .toolbar-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .toolbar-btn.confirm { background: #1b4332; border-color: #2d6a4f; color: #74c69d; }
+    .toolbar-btn.confirm:hover { background: #2d6a4f; }
+    .toolbar-btn.danger { background: #4a1010; border-color: #8a1a1a; color: #ff8080; }
+    .toolbar-btn.danger:hover { background: #8a1a1a; }
+    .toolbar-separator { width: 1px; height: 24px; background: #0f3460; margin: 0 4px; }
+    .main-area {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+    .inspector-panel {
+      width: 280px;
+      background: #16213e;
+      border-right: 1px solid #0f3460;
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      flex-shrink: 0;
+    }
+    .inspector-header {
+      padding: 10px 12px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #7fa8d0;
+      border-bottom: 1px solid #0f3460;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .inspector-body { padding: 8px; flex: 1; overflow-y: auto; }
+    .prop-group { margin-bottom: 12px; }
+    .prop-group-title {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: #5a7a9a;
+      margin-bottom: 6px;
+      padding-bottom: 3px;
+      border-bottom: 1px solid #0f3460;
+    }
+    .prop-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 5px;
+    }
+    .prop-label {
+      font-size: 11px;
+      color: #9ab;
+      width: 90px;
+      flex-shrink: 0;
+      text-align: right;
+    }
+    .prop-input {
+      flex: 1;
+      background: #0f3460;
+      border: 1px solid #1a4a8a;
+      border-radius: 3px;
+      color: #e0e0e0;
+      padding: 3px 6px;
+      font-size: 12px;
+    }
+    .prop-input:focus { border-color: #4a90d9; }
+    .prop-select {
+      flex: 1;
+      background: #0f3460;
+      border: 1px solid #1a4a8a;
+      border-radius: 3px;
+      color: #e0e0e0;
+      padding: 3px 6px;
+      font-size: 12px;
+    }
+    .pin-row {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      margin-bottom: 3px;
+    }
+    .pin-name {
+      font-family: monospace;
+      font-size: 11px;
+      color: #7fa8d0;
+      width: 70px;
+      flex-shrink: 0;
+    }
+    .pin-input {
+      flex: 1;
+      background: #0f3460;
+      border: 1px solid #1a4a8a;
+      border-radius: 3px;
+      color: #e0e0e0;
+      padding: 2px 5px;
+      font-size: 11px;
+    }
+    .pin-del-btn {
+      background: none;
+      border: none;
+      color: #f87171;
+      cursor: pointer;
+      padding: 2px;
+      font-size: 14px;
+      line-height: 1;
+    }
+    .pin-del-btn:hover { color: #ff2020; }
+    .save-btn {
+      margin: 8px;
+      padding: 6px 12px;
+      border-radius: 4px;
+      font-size: 12px;
+      cursor: pointer;
+      border: 1px solid;
+      transition: all 0.15s;
+    }
+    .save-btn.dirty {
+      background: #1a4a8a;
+      border-color: #4a90d9;
+      color: #fff;
+    }
+    .save-btn.dirty:hover { background: #2a5aaa; }
+    .save-btn.clean {
+      background: #0a2040;
+      border-color: #0f3460;
+      color: #5a7a9a;
+      cursor: default;
+    }
+    .canvas-area {
+      flex: 1;
+      overflow: hidden;
+      position: relative;
+      background: #f9fafb;
+    }
+    .canvas-svg { display: block; width: 100%; height: 100%; background: #fff; box-shadow: 0 4px 24px rgba(0,0,0,0.12); border-radius: 8px; }
+    .legend-overlay {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: rgba(255,255,255,0.97);
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: 11px;
+      color: #374151;
+      pointer-events: none;
+      max-height: calc(100% - 20px);
+      overflow-y: auto;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      min-width: 160px;
+    }
+    .legend-group-title { font-size: 10px; font-weight: 600; color: #6b7280; margin: 6px 0 3px; }
+    .legend-item { display: flex; align-items: center; gap: 6px; margin-bottom: 3px; }
+    .legend-swatch { width: 13px; height: 13px; border-radius: 2px; border: 1px solid #9ca3af; flex-shrink: 0; }
+    .dropdown-menu {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      background: #16213e;
+      border: 1px solid #1a4a8a;
+      border-radius: 4px;
+      z-index: 100;
+      min-width: 160px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+    }
+    .dropdown-item {
+      padding: 7px 12px;
+      cursor: pointer;
+      font-size: 12px;
+      color: #d0d8e8;
+      white-space: nowrap;
+    }
+    .dropdown-item:hover { background: #0f3460; }
+    .no-select-msg {
+      padding: 20px 12px;
+      color: #4a6a8a;
+      font-size: 12px;
+      text-align: center;
+    }
+    .inst-rect { cursor: pointer; }
+    .inst-rect:hover { filter: brightness(1.15); }
+    .selected-ring {
+      stroke: #4af;
+      stroke-width: 2;
+      fill: none;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+<div id="fatal-error" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:#1a1a2e;color:#f87171;font-family:monospace;padding:30px;font-size:14px;z-index:9999;overflow:auto;white-space:pre-wrap;"></div>
+<script>
+// Global error reporter — shows any uncaught JS error on the page instead of blank white
+window.onerror = function(msg, src, line, col, err) {
+  var div = document.getElementById('fatal-error');
+  if (div) { div.style.display = 'block'; div.textContent = 'JS ERROR:\n' + msg + '\n' + (src||'') + ':' + line + ':' + col + '\n\n' + (err && err.stack ? err.stack : ''); }
+};
+window.addEventListener('unhandledrejection', function(e) {
+  var div = document.getElementById('fatal-error');
+  if (div) { div.style.display = 'block'; div.textContent = 'Unhandled Promise Rejection:\n' + (e.reason && e.reason.stack ? e.reason.stack : String(e.reason)); }
+});
+
+// Minimal store creator — uses useState/useEffect, no useSyncExternalStore needed
+function create(initializer) {
+  var state;
+  var listeners = new Set();
+
+  function setState(partial) {
+    var next = typeof partial === 'function' ? partial(state) : partial;
+    state = Object.assign({}, state, next);
+    listeners.forEach(function(fn) { fn(); });
+  }
+
+  function getState() { return state; }
+
+  function subscribe(listener) {
+    listeners.add(listener);
+    return function() { listeners.delete(listener); };
+  }
+
+  state = initializer(setState, getState);
+
+  function useStore(selector) {
+    var sel = typeof selector === 'function' ? selector : function(s) { return s; };
+    // Use a counter to force re-renders when the store updates
+    var pair = React.useState(0);
+    var forceUpdate = pair[1];
+    React.useEffect(function() {
+      function notify() { forceUpdate(function(n) { return n + 1; }); }
+      listeners.add(notify);
+      return function() { listeners.delete(notify); };
+    }, []);
+    return sel(state);
+  }
+
+  useStore.getState = getState;
+  useStore.setState = setState;
+  useStore.subscribe = subscribe;
+
+  return useStore;
+}
+
+// ============================================================
+// SECTION 1: pinConfigTemplates + ioAdapter
+// ============================================================
+
+const DEFAULT_T180_PROFILE = {
+  analog: { regPwr: 'VIOLA', regGnd: 'GIOLA', vdPwr: 'VIOHA', vdGnd: 'GIOHA' },
+  digital: { regPwr: 'VIOLD', regGnd: 'GIOLD', vdPwr: 'VIOHD', vdGnd: 'GIOHD' },
+};
+const DEFAULT_T28_PROFILE = {
+  analog: { regPwr: 'AVDD', regGnd: 'AVSS', vdPwr: 'TACVDD', vdGnd: 'TACVSS' },
+  digital: { regPwr: 'VIOL', regGnd: 'GIOL', vdPwr: 'VIOH', vdGnd: 'GIOH' },
+};
+const PROCESS_DEFAULTS = { T28: DEFAULT_T28_PROFILE, T180: DEFAULT_T180_PROFILE };
+const T28_SUPPORTED_DEVICES = new Set(['PDDW16SDGZ_V_G','PDDW16SDGZ_H_G','PVDD1DGZ_V_G','PVDD1DGZ_H_G','PVSS1DGZ_V_G','PVSS1DGZ_H_G','PVDD2POC_V_G','PVDD2POC_H_G','PVSS2DGZ_V_G','PVSS2DGZ_H_G','PDB3AC_V_G','PDB3AC_H_G','PVDD1AC_V_G','PVDD1AC_H_G','PVSS1AC_V_G','PVSS1AC_H_G','PVDD3A_V_G','PVDD3A_H_G','PVSS3A_V_G','PVSS3A_H_G','PVDD3AC_V_G','PVDD3AC_H_G','PVSS3AC_V_G','PVSS3AC_H_G']);
+const T180_SUPPORTED_DEVICES = new Set(['PVDD1ANA','PVSS1ANA','PVDD1CDG','PVSS1CDG','PVDD2CDG','PVSS2CDG','PDDW0412SCDG']);
+const T180_ANALOG_PREFERRED_DEVICES = new Set(['PVDD1ANA','PVSS1ANA']);
+const T180_DIGITAL_STRICT_DEVICES = new Set(['PDDW0412SCDG']);
+const SUPPORTED_DEVICES_BY_NODE = { T28: T28_SUPPORTED_DEVICES, T180: T180_SUPPORTED_DEVICES };
+const PIN_LABEL_FALLBACKS = { analogPwr:'AVDD', analogGnd:'AVSS', digitalVdd:'VIOL', digitalVss:'GIOL', digitalVddPst:'VIOH', digitalVssPst:'GIOH' };
+const resolveDomain = (domain) => String(domain||'').toLowerCase()==='digital'?'digital':'analog';
+const resolveProcessNode = (processNode) => { const n=String(processNode||'T180').toUpperCase(); if(n==='T180')return'T180'; if(n==='T28')return'T28'; return null; };
+const normalizeDeviceName = (device) => String(device||'').trim().toUpperCase();
+const getSupportedDevices = (resolvedNode) => resolvedNode==='T180'?SUPPORTED_DEVICES_BY_NODE.T180:SUPPORTED_DEVICES_BY_NODE.T28;
+const matchesT28Family = (device, familyPrefix) => device.startsWith(`${familyPrefix}_`);
+const T28_DIGITAL_FAMILIES = new Set(['PDDW16SDGZ','PVDD1DGZ','PVSS1DGZ','PVDD2POC','PVSS2DGZ']);
+const getSupportedDevicesForProcess = (processNode) => { const resolved=resolveProcessNode(processNode)||'T180'; return Array.from(SUPPORTED_DEVICES_BY_NODE[resolved]); };
+const isSupportedDeviceForProcess = (processNode,device) => { const resolved=resolveProcessNode(processNode); if(!resolved)return false; const nd=normalizeDeviceName(device); if(!nd)return false; return SUPPORTED_DEVICES_BY_NODE[resolved].has(nd); };
+const classifyDeviceForProcess = (processNode,device) => { const resolved=resolveProcessNode(processNode); const nd=normalizeDeviceName(device); if(!resolved||!nd)return'unsupported'; if(!SUPPORTED_DEVICES_BY_NODE[resolved].has(nd))return'unsupported'; if(resolved==='T180'){if(T180_DIGITAL_STRICT_DEVICES.has(nd))return'digital'; if(T180_ANALOG_PREFERRED_DEVICES.has(nd))return'analog'; return'unsupported';} const isT28Digital=Array.from(T28_DIGITAL_FAMILIES).some(f=>matchesT28Family(nd,f)); return isT28Digital?'digital':'analog'; };
+const resolveT28Labels = (profile) => ({ analogPwrRef:profile.analog.regPwr||PIN_LABEL_FALLBACKS.analogPwr, analogGndRef:profile.analog.regGnd||PIN_LABEL_FALLBACKS.analogGnd, digitalVdd:profile.digital.regPwr||PIN_LABEL_FALLBACKS.digitalVdd, digitalVss:profile.digital.regGnd||PIN_LABEL_FALLBACKS.digitalVss, digitalVddPst:profile.digital.vdPwr||PIN_LABEL_FALLBACKS.digitalVddPst, digitalVssPst:profile.digital.vdGnd||PIN_LABEL_FALLBACKS.digitalVssPst });
+const buildCoreName = (instanceName,fallback) => { const name=String(instanceName||'').trim(); return name?`${name}_CORE`:`${fallback}_CORE`; };
+const matchesDeviceFamily = (device,familyPrefix) => device.startsWith(`${familyPrefix}_`);
+const T28_RULES = [
+  { family:'PDB3AC', build:(n,l)=>({AIO:{label:n||'AIO'},TACVSS:{label:l.analogGndRef},TACVDD:{label:l.analogPwrRef},VSS:{label:l.digitalVss}}) },
+  { family:'PVDD1AC', build:(n,l)=>({AVDD:{label:n||'AVDD'},TACVSS:{label:l.analogGndRef},TACVDD:{label:l.analogPwrRef},VSS:{label:l.digitalVss}}) },
+  { family:'PVSS1AC', build:(n,l)=>({AVSS:{label:n||'AVSS'},TACVSS:{label:l.analogGndRef},TACVDD:{label:l.analogPwrRef},VSS:{label:l.digitalVss}}) },
+  { family:'PVDD3AC', build:(n,l)=>({AVDD:{label:buildCoreName(n,'AVDD')},TACVSS:{label:l.analogGndRef},TACVDD:{label:n||l.analogPwrRef},VSS:{label:l.digitalVss}}) },
+  { family:'PVSS3AC', build:(n,l)=>({AVSS:{label:buildCoreName(n,'AVSS')},TACVSS:{label:n||l.analogGndRef},TACVDD:{label:l.analogPwrRef},VSS:{label:l.digitalVss}}) },
+  { family:'PVDD3A', build:(n,l)=>({AVDD:{label:buildCoreName(n,'AVDD')},TAVSS:{label:l.analogGndRef},TAVDD:{label:n||l.analogPwrRef},VSS:{label:l.digitalVss}}) },
+  { family:'PVSS3A', build:(n,l)=>({AVSS:{label:buildCoreName(n,'AVSS')},TAVSS:{label:n||l.analogGndRef},TAVDD:{label:l.analogPwrRef},VSS:{label:l.digitalVss}}) },
+];
+const buildT28DigitalPinConfig = (labels) => ({VDD:{label:labels.digitalVdd},VSS:{label:labels.digitalVss},VDDPST:{label:labels.digitalVddPst},VSSPST:{label:labels.digitalVssPst}});
+const buildT28PinConfig = (device,instanceName,profile) => { const labels=resolveT28Labels(profile); for(const rule of T28_RULES){if(matchesDeviceFamily(device,rule.family))return rule.build(instanceName,labels);} const isDigitalFamily=Array.from(T28_DIGITAL_FAMILIES).some(f=>matchesDeviceFamily(device,f)); if(isDigitalFamily)return buildT28DigitalPinConfig(labels); return null; };
+const resolveProfile = (processNode,pinConfigProfiles) => { const resolvedNode=String(processNode||'T180').toUpperCase(); const resolvedProcessNode=resolveProcessNode(resolvedNode); const externalProfile=pinConfigProfiles&&pinConfigProfiles[resolvedNode]?pinConfigProfiles[resolvedNode]:null; if(externalProfile?.analog&&externalProfile?.digital)return externalProfile; if(!resolvedProcessNode)return null; return PROCESS_DEFAULTS[resolvedProcessNode]||null; };
+const SELF_NAME_PIN_BY_DEVICE = {PVDD1ANA:'AVDD',PVSS1ANA:'AVSS',PVDD1CDG:'VDD',PVSS1CDG:'VSS',PVDD2CDG:'VDDPST',PVSS2CDG:'VSSPST'};
+const withSelfNamePins = (device,instanceName,pinConfig) => { if(!instanceName)return pinConfig; const targetPin=SELF_NAME_PIN_BY_DEVICE[device]; if(!targetPin)return pinConfig; return{...pinConfig,[targetPin]:{label:instanceName}}; };
+const buildPinConfigTemplate = (options) => { const resolvedNode=String(options.processNode||'T180').toUpperCase(); const device=String(options.device||'').toUpperCase(); const instanceName=String(options.instanceName||'').trim(); const supportedDevices=getSupportedDevices(resolvedNode); if(!supportedDevices.has(device))return null; const profile=resolveProfile(resolvedNode,options.pinConfigProfiles); if(!profile)return null; if(resolvedNode==='T28')return buildT28PinConfig(device,instanceName,profile); const domain=resolveDomain(options.domain); const labels=domain==='digital'?profile.digital:profile.analog; const base={VDD:{label:labels.regPwr},VSS:{label:labels.regGnd},VDDPST:{label:labels.vdPwr},VSSPST:{label:labels.vdGnd}}; return withSelfNamePins(device,instanceName,base); };
+const supportedProcessNodes = () => Object.keys(PROCESS_DEFAULTS);
+
+// === ioAdapter.js ===
+const generateId = () => Math.random().toString(36).substr(2,9);
+const RUNTIME_META_KEYS = ['location','_relative_position','_original_position','position'];
+const BUSINESS_KEYS = ['view_name','domain','pad_width','pad_height','pin_connection','direction','voltage_domain','orientation'];
+const importAdapter = (json) => {
+  const sourceInstances = json.layout_data||json.instances||[];
+  const processedInstances = sourceInstances.map(extInst => {
+    const {position,name,device,type,side,order,id:rawId,meta:rawMeta,...rest} = extInst;
+    const normalizedMeta = rawMeta&&typeof rawMeta==='object'?{...rawMeta}:{};
+    const runtimeMeta = {};
+    RUNTIME_META_KEYS.forEach(key=>{if(normalizedMeta[key]!==undefined)runtimeMeta[key]=normalizedMeta[key];});
+    const migratedBusinessFields = {};
+    BUSINESS_KEYS.forEach(key=>{if(rest[key]===undefined&&normalizedMeta[key]!==undefined)migratedBusinessFields[key]=normalizedMeta[key];});
+    let finalSide; let finalOrder=0;
+    if(side&&order!==undefined){finalSide=side; const numericOrder=Number(order); finalOrder=Number.isFinite(numericOrder)?Math.max(1,numericOrder):1;}
+    else if(typeof position==='string'){
+      const ioMatch=position.match(/^(top|bottom|left|right)_(\d+)$/);
+      const cornerMatch=position.match(/^(top|bottom)_(left|right)$/);
+      if(ioMatch){finalSide=ioMatch[1]; finalOrder=parseInt(ioMatch[2],10)+1;}
+      else if(cornerMatch){finalSide='corner'; runtimeMeta['_original_position']=position;}
+      else{const instanceLabel=String(name||device||rawId||'unknown'); throw new Error(`Invalid position format for instance '${instanceLabel}': '${position}'.`);}
+    } else {const instanceLabel=String(name||device||rawId||'unknown'); throw new Error(`Missing position for instance '${instanceLabel}'.`);}
+    const id=rawId||generateId();
+    return {id,name:name||`Inst_${id}`,device:device||'UNKNOWN',type:type||'unknown',side:finalSide,order:finalOrder,...migratedBusinessFields,...rest,meta:{...runtimeMeta,...(Array.isArray(position)?{position}:{})}};
+  });
+  return {ring_config:json.ring_config,visual_metadata:json.visual_metadata,instances:processedInstances};
+};
+const exportAdapter = (graph) => {
+  const exportedInstances = graph.instances.map(inst => {
+    const {side,order,meta,name,device,type,id,...topLevelFields} = inst;
+    const {_original_position,position:metaPos} = meta||{};
+    const normalizedPinConnection = topLevelFields.pin_connection&&typeof topLevelFields.pin_connection==='object'?topLevelFields.pin_connection:undefined;
+    const exportedBusinessFields = {};
+    ['view_name','domain','pad_width','pad_height','direction','voltage_domain','orientation'].forEach(key=>{if(topLevelFields[key]!==undefined)exportedBusinessFields[key]=topLevelFields[key];});
+    const normalizedOrder = Number.isFinite(Number(order))?Math.max(1,Number(order)):1;
+    let position = metaPos||[0,0];
+    if(side==='top'||side==='right'||side==='bottom'||side==='left'){position=`${side}_${normalizedOrder-1}`;}
+    else{const cornerPos=meta?.location||_original_position||meta?._relative_position; if(cornerPos==='top_left'||cornerPos==='top_right'||cornerPos==='bottom_left'||cornerPos==='bottom_right')position=cornerPos;}
+    return {id,name,device,type,position,...(normalizedPinConnection?{pin_connection:normalizedPinConnection}:{}),...exportedBusinessFields};
+  });
+  return {ring_config:graph.ring_config,layout_data:exportedInstances,instances:exportedInstances};
+};
+
+// ============================================================
+// SECTION 2: useIORingStore
+// ============================================================
+
+const DEFAULT_PAD_DEVICE_BY_PROCESS = {T180:'PVDD1CDG',T28:'PDDW16SDGZ_V_G'};
+const resolveProcessNodeKey = (processNode) => String(processNode||'T180').toUpperCase().includes('28')?'T28':'T180';
+const resolveCornerDevice = (processNode,type='corner') => { const processKey=resolveProcessNodeKey(processNode); if(processKey==='T28'){if(type==='corner_digital')return'PCORNER_G'; return'PCORNERA_G';} return'PCORNER'; };
+const resolvePeripheralDevice = (processNode,type='pad') => {
+  const processKey=resolveProcessNodeKey(processNode);
+  if(type==='blank'||type==='space')return{namePrefix:'BLANK',device:'BLANK',normalizedType:'blank'};
+  if(type==='cut'){if(processKey==='T28')return{namePrefix:'CUT',device:'PRCUTA_G',normalizedType:'filler'}; return{namePrefix:'CUT',device:'PFILLER10',normalizedType:'filler'};}
+  if(type==='filler'||type==='filler10'||type==='filler20'||type==='filler10a'||type==='filler20a'){
+    if(processKey==='T28'){const t28FillerMap={filler10a:'PFILLER10A_G',filler20a:'PFILLER20A_G',filler10:'PFILLER10_G',filler20:'PFILLER20_G',filler:'PFILLER20A_G'}; return{namePrefix:'FILLER',device:t28FillerMap[type]||t28FillerMap.filler,normalizedType:'filler'};}
+    const t180FillerMap={filler10:'PFILLER10',filler20:'PFILLER20',filler:'PFILLER20',filler10a:'PFILLER10',filler20a:'PFILLER20'}; return{namePrefix:'FILLER',device:t180FillerMap[type]||t180FillerMap.filler,normalizedType:'filler'};
+  }
+  return null;
+};
+const resolvePadWidthFromDevice = (device) => { const nd=String(device||'').toUpperCase(); if(nd==='BLANK'||nd.includes('RCUT'))return 10; const m=nd.match(/PFILLER(\d+)/); if(m){const p=Number(m[1]); return Number.isFinite(p)&&p>0?p:10;} return null; };
+const isFillerLike = (inst) => { const ct=String(inst.type||'').toLowerCase(); const d=String(inst.device||'').toUpperCase(); return ct==='filler'||ct==='blank'||d.includes('FILLER')||d.includes('RCUT')||d==='BLANK'; };
+const hasOwn = (obj,key) => Object.prototype.hasOwnProperty.call(obj,key);
+const isPinConfigRecord = (value) => !!value&&typeof value==='object'&&!Array.isArray(value);
+const normalizePinConfig = (config) => { if(!isPinConfigRecord(config))return null; const normalized={}; Object.keys(config).sort().forEach(pin=>{const entry=config[pin]; if(entry&&typeof entry==='object'&&!Array.isArray(entry))normalized[pin]=String(entry.label??''); else normalized[pin]=String(entry??'');}); return normalized; };
+const pinConfigsEqual = (left,right) => { const l=normalizePinConfig(left); const r=normalizePinConfig(right); if(!l||!r)return false; return JSON.stringify(l)===JSON.stringify(r); };
+const buildTemplateForInstance = (inst,ringConfig) => buildPinConfigTemplate({processNode:ringConfig?.process_node,device:inst.device,instanceName:inst.name,domain:inst.domain,pinConfigProfiles:ringConfig?.pin_connection_profiles});
+const hasCustomPinConfig = (inst,ringConfig) => { const current=inst.pin_connection; if(!isPinConfigRecord(current))return false; const template=buildTemplateForInstance(inst,ringConfig); if(!template)return true; return !pinConfigsEqual(current,template); };
+const shouldRebuildPinConfig = (previous,partial,ringConfig) => { if(hasOwn(partial,'pin_connection'))return false; const triggerRebuild=hasOwn(partial,'device')||hasOwn(partial,'domain')||hasOwn(partial,'name'); if(!triggerRebuild)return false; if(hasCustomPinConfig(previous,ringConfig))return false; const next={...previous,...partial}; return isSupportedDeviceForProcess(ringConfig?.process_node,next.device); };
+const resolveDefaultPadDevice = (processNode) => { const normalized=String(processNode||'T180').toUpperCase(); const preferred=DEFAULT_PAD_DEVICE_BY_PROCESS[normalized]; const supported=getSupportedDevicesForProcess(normalized); if(preferred&&supported.includes(preferred))return preferred; if(supported.length>0)return supported[0]; return'GenericDevice'; };
+const toPositiveNumber = (value,fallback) => { const numeric=Number(value); if(Number.isFinite(numeric)&&numeric>0)return numeric; return fallback; };
+const isPadLikeInstance = (inst) => String(inst.type||'').toLowerCase()==='pad';
+const inferPerimeterWidth = (inst,ringConfig) => {
+  const compType=String(inst.type||'').toLowerCase(); const device=String(inst.device||'').toUpperCase();
+  if(compType==='corner'||device.includes('CORNER'))return toPositiveNumber(inst.pad_width??inst.pad_height??ringConfig.corner_size,130);
+  if(compType==='filler'||compType==='blank'||device.includes('FILLER')||device.includes('RCUT')||device==='BLANK'){
+    const explicit=toPositiveNumber(inst.pad_width,NaN); if(Number.isFinite(explicit))return explicit;
+    const m=device.match(/PFILLER(\d+)/); if(m)return toPositiveNumber(m[1],10); if(device==='BLANK')return 10; return 10;
+  }
+  return toPositiveNumber(inst.pad_width??ringConfig.pad_width,80);
+};
+const resolveCornerLocation = (inst) => { const location=inst.meta?.location||inst.meta?._relative_position||inst.meta?._original_position; if(location==='top_left'||location==='top_right'||location==='bottom_left'||location==='bottom_right')return location; return null; };
+const withCornerLocation = (inst,location) => ({...inst,side:'corner',meta:{...(inst.meta||{}),location,_relative_position:location,_original_position:location}});
+const getFirstEmptyCornerLocation = (graph) => { const occupied=new Set(); graph.instances.forEach(inst=>{if(inst.side!=='corner')return; const loc=resolveCornerLocation(inst); if(loc)occupied.add(loc);}); const ordered=['top_left','top_right','bottom_right','bottom_left']; return ordered.find(loc=>!occupied.has(loc))||null; };
+const withAutoChipSize = (graph) => {
+  if(!graph||!Array.isArray(graph.instances))return graph;
+  const sideSum={top:0,right:0,bottom:0,left:0};
+  const corners={top_left:null,top_right:null,bottom_left:null,bottom_right:null};
+  graph.instances.forEach(inst=>{const side=String(inst.side||''); if(side==='corner'){const loc=resolveCornerLocation(inst); if(loc)corners[loc]=inst; return;} if(['top','right','bottom','left'].includes(side))sideSum[side]+=inferPerimeterWidth(inst,graph.ring_config);});
+  const defaultCorner=toPositiveNumber(graph.ring_config.corner_size,130);
+  const cornerLen=(corner)=>corner?inferPerimeterWidth(corner,graph.ring_config):defaultCorner;
+  const topTotal=sideSum.top+cornerLen(corners.top_left)+cornerLen(corners.top_right);
+  const bottomTotal=sideSum.bottom+cornerLen(corners.bottom_left)+cornerLen(corners.bottom_right);
+  const leftTotal=sideSum.left+cornerLen(corners.top_left)+cornerLen(corners.bottom_left);
+  const rightTotal=sideSum.right+cornerLen(corners.top_right)+cornerLen(corners.bottom_right);
+  return{...graph,ring_config:{...graph.ring_config,chip_width:Math.max(topTotal,bottomTotal),chip_height:Math.max(leftTotal,rightTotal)}};
+};
+const withAutoSideCounts = (graph) => {
+  if(!graph||!Array.isArray(graph.instances))return graph;
+  const counts={top:0,right:0,bottom:0,left:0};
+  graph.instances.forEach(inst=>{if(['top','right','bottom','left'].includes(inst.side)&&isPadLikeInstance(inst))counts[inst.side]+=1;});
+  const width=Math.max(counts.top,counts.bottom,1); const height=Math.max(counts.left,counts.right,1);
+  const ringConfig=graph.ring_config||{};
+  const hasPatternA=ringConfig.top_count!==undefined||ringConfig.right_count!==undefined||ringConfig.bottom_count!==undefined||ringConfig.left_count!==undefined;
+  const hasPatternB=ringConfig.num_pads_top!==undefined||ringConfig.num_pads_right!==undefined||ringConfig.num_pads_bottom!==undefined||ringConfig.num_pads_left!==undefined;
+  const usePatternA=hasPatternA||!hasPatternB;
+  return{...graph,ring_config:{...ringConfig,width,height,...(usePatternA?{top_count:counts.top,right_count:counts.right,bottom_count:counts.bottom,left_count:counts.left}:{}),...(hasPatternB?{num_pads_top:counts.top,num_pads_right:counts.right,num_pads_bottom:counts.bottom,num_pads_left:counts.left}:{})}};
+};
+const withDerivedRingConfig = (graph) => withAutoSideCounts(withAutoChipSize(graph));
+const getPlacementOrder = (graph) => String(graph?.ring_config?.placement_order||'counterclockwise')==='clockwise'?'clockwise':'counterclockwise';
+const shouldReverseVisual = (side,placementOrder) => { if(placementOrder==='clockwise')return side==='bottom'||side==='left'; return side==='top'||side==='right'; };
+const buildRelativePosition = (inst) => {
+  if(inst.side==='corner'){const location=inst.meta?.location||inst.meta?._relative_position||inst.meta?._original_position; if(['top_left','top_right','bottom_left','bottom_right'].includes(location))return location; return null;}
+  if(['top','right','bottom','left'].includes(inst.side)&&Number.isFinite(inst.order))return`${inst.side}_${Math.max(0,Number(inst.order)-1)}`;
+  return null;
+};
+const applySideOrderFromVisual = (side,visualInstances,placementOrder) => { const reversed=shouldReverseVisual(side,placementOrder); const total=visualInstances.length; return visualInstances.map((inst,visualIndex)=>{const order=reversed?total-visualIndex:visualIndex+1; const updated={...inst,side,order,meta:{...(inst.meta||{})}}; const relPos=buildRelativePosition(updated); if(relPos)updated.meta._relative_position=relPos; return updated;}); };
+const getSideVisualInstances = (graph,side) => { const placementOrder=getPlacementOrder(graph); const sorted=graph.instances.filter(i=>i.side===side).slice().sort((a,b)=>Number(a.order||0)-Number(b.order||0)); if(shouldReverseVisual(side,placementOrder))return sorted.slice().reverse(); return sorted; };
+const normalizeGraphInstances = (graph) => {
+  const placementOrder=getPlacementOrder(graph); const sideSet=['top','right','bottom','left']; const byId=new Map();
+  sideSet.forEach(side=>{const visual=getSideVisualInstances(graph,side); applySideOrderFromVisual(side,visual,placementOrder).forEach(inst=>byId.set(inst.id,inst));});
+  const normalizedInstances=graph.instances.map(inst=>{if(inst.side==='corner'){const updated={...inst,meta:{...(inst.meta||{})}}; const relPos=buildRelativePosition(updated); if(relPos)updated.meta._relative_position=relPos; return updated;} return byId.get(inst.id)||inst;});
+  return{...graph,instances:normalizedInstances};
+};
+const withAutoPinConfig = (inst,ringConfig,force=false) => { const existingPinConfig=inst.pin_connection; if(!force&&existingPinConfig&&typeof existingPinConfig==='object')return inst; const generated=buildTemplateForInstance(inst,ringConfig); if(!generated)return inst; return{...inst,pin_connection:generated}; };
+const DEFAULT_GRAPH = {ring_config:{width:26,height:12,placement_order:'counterclockwise',process_node:'T180'},instances:[]};
+
+const useIORingStore = create((set,get) => {
+  const pushHistory = () => set(state=>({history:{past:[...state.history.past,state.graph],future:[]}}));
+  return {
+    graph:DEFAULT_GRAPH, selectedId:null, selectedIds:[], clipboard:null, editorSourcePath:null, editorProcessNode:null, history:{past:[],future:[]},
+    setGraph: graph => { const processedGraph=withDerivedRingConfig(normalizeGraphInstances({...graph,instances:graph.instances.map(inst=>({...withAutoPinConfig({...inst,meta:inst.meta||{}},graph.ring_config),id:inst.id||generateId()}))})); set({graph:processedGraph,history:{past:[],future:[]},selectedId:null,selectedIds:[]}); },
+    setEditorSourcePath: path => set({editorSourcePath:path}),
+    setEditorProcessNode: processNode => set({editorProcessNode:processNode}),
+    selectInstance: (id,additive=false) => set(state=>{ if(!id)return{selectedId:null,selectedIds:[]}; if(!additive)return{selectedId:id,selectedIds:[id]}; const exists=state.selectedIds.includes(id); const nextSelectedIds=exists?state.selectedIds.filter(item=>item!==id):[...state.selectedIds,id]; return{selectedId:nextSelectedIds.length?nextSelectedIds[nextSelectedIds.length-1]:null,selectedIds:nextSelectedIds}; }),
+    selectInstances: (ids,additive=false) => set(state=>{ const deduped=Array.from(new Set(ids)); const nextSelectedIds=additive?Array.from(new Set([...state.selectedIds,...deduped])):deduped; return{selectedId:nextSelectedIds.length?nextSelectedIds[nextSelectedIds.length-1]:null,selectedIds:nextSelectedIds}; }),
+    clearSelection: () => set({selectedId:null,selectedIds:[]}),
+    updateInstance: (id,partial) => { pushHistory(); const{graph}=get(); const newInstances=graph.instances.map(inst=>{if(inst.id!==id)return inst; const nextPartial={...partial}; if(hasOwn(partial,'device')&&!hasOwn(partial,'pad_width')){const nc={...inst,...partial}; if(isFillerLike(nc)){const aw=resolvePadWidthFromDevice(nc.device); if(aw!==null)nextPartial.pad_width=aw;}} const forceRebuild=shouldRebuildPinConfig(inst,nextPartial,graph.ring_config); return withAutoPinConfig({...inst,...nextPartial},graph.ring_config,forceRebuild);}); set({graph:withDerivedRingConfig(normalizeGraphInstances({...graph,instances:newInstances}))}); },
+    updateInstancesPinConnection: (ids,pinConnection) => { const targetIds=Array.from(new Set(ids)); if(targetIds.length===0)return; pushHistory(); const{graph}=get(); const targetSet=new Set(targetIds); const newInstances=graph.instances.map(inst=>{if(!targetSet.has(inst.id))return inst; const nextMeta={...(inst.meta||{})}; delete nextMeta.pin_connection; return withAutoPinConfig({...inst,pin_connection:pinConnection,meta:nextMeta},graph.ring_config);}); set({graph:withDerivedRingConfig(normalizeGraphInstances({...graph,instances:newInstances}))}); },
+    moveInstance: (id,newSide,newOrder) => {
+      pushHistory(); const{graph}=get(); const placementOrder=getPlacementOrder(graph); const target=graph.instances.find(i=>i.id===id); if(!target)return; const oldSide=target.side; if(!['top','right','bottom','left'].includes(oldSide))return;
+      if(oldSide===newSide){const vis=getSideVisualInstances(graph,oldSide); const filtered=vis.filter(i=>i.id!==id); const insertIndex=Math.max(0,Math.min(newOrder,filtered.length)); filtered.splice(insertIndex,0,{...target,side:newSide}); const updatedSide=applySideOrderFromVisual(oldSide,filtered,placementOrder); const updatedMap=new Map(updatedSide.map(i=>[i.id,i])); set({graph:withDerivedRingConfig(normalizeGraphInstances({...graph,instances:graph.instances.map(inst=>updatedMap.get(inst.id)||inst)}))});}
+      else{const oldVis=getSideVisualInstances(graph,oldSide).filter(i=>i.id!==id); const newVis=getSideVisualInstances(graph,newSide); const insertIndex=Math.max(0,Math.min(newOrder,newVis.length)); newVis.splice(insertIndex,0,{...target,side:newSide}); const updatedOld=applySideOrderFromVisual(oldSide,oldVis,placementOrder); const updatedNew=applySideOrderFromVisual(newSide,newVis,placementOrder); const updatedMap=new Map(); updatedOld.forEach(inst=>updatedMap.set(inst.id,inst)); updatedNew.forEach(inst=>updatedMap.set(inst.id,inst)); set({graph:withDerivedRingConfig(normalizeGraphInstances({...graph,instances:graph.instances.map(inst=>updatedMap.get(inst.id)||inst)}))});}
+    },
+    moveInstances: (ids,newSide,newOrder) => {
+      const deduped=Array.from(new Set(ids)); if(deduped.length===0)return; const{graph}=get(); const selectedSet=new Set(deduped); const movable=graph.instances.filter(inst=>selectedSet.has(inst.id)); if(movable.length===0)return; pushHistory();
+      const placementOrder=getPlacementOrder(graph); const sideSet=['top','right','bottom','left']; const sidePriority={top:0,right:1,bottom:2,left:3};
+      const sortedMovable=movable.slice().sort((a,b)=>a.side===b.side?Number(a.order||0)-Number(b.order||0):sidePriority[a.side]-sidePriority[b.side]);
+      const destWithout=getSideVisualInstances(graph,newSide).filter(inst=>!selectedSet.has(inst.id)); const insertIndex=Math.max(0,Math.min(newOrder,destWithout.length)); const movedWithNew=sortedMovable.map(inst=>({...inst,side:newSide})); const destVis=[...destWithout]; destVis.splice(insertIndex,0,...movedWithNew);
+      const updatedMap=new Map(); sideSet.forEach(side=>{const vfs=side===newSide?destVis:getSideVisualInstances(graph,side).filter(inst=>!selectedSet.has(inst.id)); applySideOrderFromVisual(side,vfs,placementOrder).forEach(inst=>updatedMap.set(inst.id,inst));});
+      set({graph:withDerivedRingConfig(normalizeGraphInstances({...graph,instances:graph.instances.map(inst=>updatedMap.get(inst.id)||inst)})),selectedId:deduped[deduped.length-1]||null,selectedIds:deduped});
+    },
+    moveCornerInstance: (id,location) => { pushHistory(); const{graph}=get(); const target=graph.instances.find(inst=>inst.id===id); if(!target||target.side!=='corner')return; const currentLocation=resolveCornerLocation(target); if(currentLocation===location)return; const occupant=graph.instances.find(inst=>{if(inst.id===id||inst.side!=='corner')return false; return resolveCornerLocation(inst)===location;}); const swapLocation=currentLocation||getFirstEmptyCornerLocation(graph)||null; if(occupant&&!swapLocation)return; const newInstances=graph.instances.map(inst=>{if(inst.id===id)return withCornerLocation(inst,location); if(occupant&&inst.id===occupant.id&&swapLocation)return withCornerLocation(inst,swapLocation); return inst;}); set({graph:withDerivedRingConfig(normalizeGraphInstances({...graph,instances:newInstances}))}); },
+    copyInstance: id => { const{graph}=get(); const instance=graph.instances.find(i=>i.id===id); if(instance)set({clipboard:{instances:[{...instance,meta:{...(instance.meta||{})}}],sourceSelectionIds:[id]}}); },
+    copySelection: ids => { const{graph,selectedIds,selectedId}=get(); const requested=ids&&ids.length>0?ids:selectedIds; const fallback=requested.length>0?requested:selectedId?[selectedId]:[]; if(fallback.length===0)return; const byId=new Map(graph.instances.map(inst=>[inst.id,inst])); const copiedInstances=fallback.map(id=>byId.get(id)).filter(inst=>!!inst).map(inst=>({...inst,meta:{...(inst.meta||{})}})); if(copiedInstances.length===0)return; set({clipboard:{instances:copiedInstances,sourceSelectionIds:fallback}}); },
+    pasteInstance: targetSide => {
+      const{clipboard,graph,selectedId}=get(); if(!clipboard||clipboard.instances.length===0)return; const selectedInstance=selectedId?graph.instances.find(inst=>inst.id===selectedId):null;
+      const clipboardCorners=clipboard.instances.filter(inst=>inst.side==='corner'||String(inst.type||'').toLowerCase()==='corner'||String(inst.device||'').toUpperCase().includes('CORNER'));
+      const clipboardLinear=clipboard.instances.filter(inst=>!clipboardCorners.some(ci=>ci.id===inst.id));
+      if(clipboardCorners.length===0&&clipboardLinear.length===0)return; pushHistory(); let workingGraph=graph; const pastedIds=[];
+      const sideToUse=targetSide||(selectedInstance&&selectedInstance.side!=='corner'?selectedInstance.side:clipboardLinear[0]?.side||'top');
+      if(clipboardLinear.length>0){const sideInstances=getSideVisualInstances(workingGraph,sideToUse); let insertIndex=sideInstances.length; if(selectedInstance&&selectedInstance.side===sideToUse&&selectedInstance.side!=='corner'){const si=sideInstances.findIndex(inst=>inst.id===selectedInstance.id); if(si>=0)insertIndex=si+1;} const newInstances=clipboardLinear.map(inst=>({...inst,id:generateId(),side:sideToUse,order:1,meta:{...(inst.meta||{})}})); const newVis=[...sideInstances]; newVis.splice(insertIndex,0,...newInstances); const placementOrder=getPlacementOrder(workingGraph); const updatedSide=applySideOrderFromVisual(sideToUse,newVis,placementOrder); const updatedMap=new Map(updatedSide.map(i=>[i.id,i])); workingGraph={...workingGraph,instances:[...workingGraph.instances,...newInstances].map(inst=>updatedMap.get(inst.id)||inst)}; pastedIds.push(...newInstances.map(inst=>inst.id));}
+      clipboardCorners.forEach(cc=>{const emptyLocation=getFirstEmptyCornerLocation(workingGraph); if(!emptyLocation)return; const cornerInstance=withCornerLocation({...cc,id:generateId(),type:'corner',device:cc.device||'PCORNER',order:1,meta:{...(cc.meta||{})}},emptyLocation); workingGraph={...workingGraph,instances:[...workingGraph.instances,cornerInstance]}; pastedIds.push(cornerInstance.id);});
+      if(pastedIds.length===0)return; set({graph:withDerivedRingConfig(normalizeGraphInstances(workingGraph)),selectedId:pastedIds[pastedIds.length-1]||null,selectedIds:pastedIds});
+    },
+    addInstance: (side,type='pad') => {
+      pushHistory(); const{graph,selectedId}=get(); const requestedType=String(type||'pad').toLowerCase();
+      if(requestedType==='corner'||requestedType==='corner_analog'||requestedType==='corner_digital'){const cornerLocation=getFirstEmptyCornerLocation(graph); if(!cornerLocation)return; const cornerDevice=resolveCornerDevice(graph.ring_config?.process_node,requestedType); const cornerInst=withCornerLocation({id:generateId(),name:`CORNER_${cornerLocation}`,device:cornerDevice,type:'corner',side:'corner',order:1,meta:{}},cornerLocation); set({graph:withDerivedRingConfig(normalizeGraphInstances({...graph,instances:[...graph.instances,cornerInst]})),selectedId:cornerInst.id,selectedIds:[cornerInst.id]}); return;}
+      const selectedInstance=selectedId?graph.instances.find(i=>i.id===selectedId):null; let targetSide=side; if(selectedInstance&&selectedInstance.side!=='corner')targetSide=selectedInstance.side;
+      let namePrefix='INST'; let device=resolveDefaultPadDevice(graph.ring_config?.process_node); let normalizedType=requestedType; const businessDefaults={};
+      const peripheralConfig=resolvePeripheralDevice(graph.ring_config?.process_node,requestedType);
+      if(peripheralConfig){namePrefix=peripheralConfig.namePrefix; device=peripheralConfig.device; normalizedType=peripheralConfig.normalizedType;}
+      else{const processNode=String(graph.ring_config?.process_node||'T180').toUpperCase(); const deviceClass=classifyDeviceForProcess(graph.ring_config?.process_node,device); if(processNode==='T180')businessDefaults.domain=deviceClass==='analog'?'analog':'digital'; if(deviceClass==='digital')businessDefaults.direction='input';}
+      const sideInstances=getSideVisualInstances(graph,targetSide); let insertIndex=sideInstances.length;
+      if(selectedInstance&&selectedInstance.side===targetSide&&selectedInstance.side!=='corner'){const fi=sideInstances.findIndex(i=>i.id===selectedId); if(fi!==-1)insertIndex=fi+1;}
+      const newInst={id:generateId(),name:`${namePrefix}_${sideInstances.length+1}`,device,type:normalizedType,side:targetSide,order:1,meta:{},...businessDefaults};
+      if(isFillerLike(newInst)){const aw=resolvePadWidthFromDevice(newInst.device); if(aw!==null)newInst.pad_width=aw;}
+      const newInstWithPinConfig=withAutoPinConfig(newInst,graph.ring_config,true); const newSideList=[...sideInstances]; newSideList.splice(insertIndex,0,newInstWithPinConfig);
+      const placementOrder=getPlacementOrder(graph); const reindexedSideList=applySideOrderFromVisual(targetSide,newSideList,placementOrder); const otherInstances=graph.instances.filter(i=>i.side!==targetSide);
+      set({graph:withDerivedRingConfig(normalizeGraphInstances({...graph,instances:[...otherInstances,...reindexedSideList]})),selectedId:newInstWithPinConfig.id,selectedIds:[newInstWithPinConfig.id]});
+    },
+    deleteInstance: id => { pushHistory(); const{graph}=get(); set({graph:withDerivedRingConfig(normalizeGraphInstances({...graph,instances:graph.instances.filter(i=>i.id!==id)})),selectedId:null,selectedIds:[]}); },
+    deleteInstances: ids => { if(!ids.length)return; pushHistory(); const{graph}=get(); const deleteSet=new Set(ids); set({graph:withDerivedRingConfig(normalizeGraphInstances({...graph,instances:graph.instances.filter(inst=>!deleteSet.has(inst.id))})),selectedId:null,selectedIds:[]}); },
+    updateRingConfig: config => { pushHistory(); const{graph}=get(); set({graph:withDerivedRingConfig({...graph,ring_config:{...graph.ring_config,...config}})}); },
+    undo: () => set(state=>{ const{past,future}=state.history; if(past.length===0)return state; const previous=past[past.length-1]; const newPast=past.slice(0,past.length-1); return{graph:previous,history:{past:newPast,future:[state.graph,...future]}}; }),
+    redo: () => set(state=>{ const{past,future}=state.history; if(future.length===0)return state; const next=future[0]; const newFuture=future.slice(1); return{graph:next,history:{past:[...past,state.graph],future:newFuture}}; }),
+  };
+});
+
+// ============================================================
+// React Components
+// ============================================================
+
+const { createElement: h, useState, useEffect, useRef, useCallback } = React;
+
+// ---- Color maps (synced with RingCanvas.tsx source) ----
+const T28_DEVICE_COLORS = {
+  PDB3AC: '#4A90E2', PDB3AC_H_G: '#4A90E2', PDB3AC_V_G: '#4A90E2',
+  PVDD1AC: '#5BA0F2', PVDD1AC_H_G: '#5BA0F2', PVDD1AC_V_G: '#5BA0F2',
+  PVSS1AC: '#3A80D2', PVSS1AC_H_G: '#3A80D2', PVSS1AC_V_G: '#3A80D2',
+  PVDD3AC: '#87CEEB', PVDD3AC_H_G: '#87CEEB', PVDD3AC_V_G: '#87CEEB',
+  PVSS3AC: '#4682B4', PVSS3AC_H_G: '#4682B4', PVSS3AC_V_G: '#4682B4',
+  PVDD3A: '#7EC8E3', PVDD3A_H_G: '#7EC8E3', PVDD3A_V_G: '#7EC8E3',
+  PVSS3A: '#3E7AB0', PVSS3A_H_G: '#3E7AB0', PVSS3A_V_G: '#3E7AB0',
+  PDDW16SDGZ: '#32CD32', PDDW16SDGZ_H_G: '#32CD32', PDDW16SDGZ_V_G: '#32CD32',
+  PVDD1DGZ: '#90EE90', PVDD1DGZ_H_G: '#90EE90', PVDD1DGZ_V_G: '#90EE90',
+  PVDD2POC: '#90EE90', PVDD2POC_H_G: '#90EE90', PVDD2POC_V_G: '#90EE90',
+  PVSS1DGZ: '#228B22', PVSS1DGZ_H_G: '#228B22', PVSS1DGZ_V_G: '#228B22',
+  PVSS2DGZ: '#228B22', PVSS2DGZ_H_G: '#228B22', PVSS2DGZ_V_G: '#228B22',
+  PCORNERA_G: '#FF6B6B', PCORNER_G: '#FF8888',
+  PFILLER10A_G: '#D8D8D8', PFILLER20A_G: '#D8D8D8',
+  PFILLER10_G: '#C0C0C0', PFILLER20_G: '#C0C0C0',
+  PRCUTA_G: '#A0A0A0',
+};
+const T180_DEVICE_COLORS = {
+  PAD70LU_TRL: '#FFD700',
+  PVDD1CDG: '#32CD32', PVSS1CDG: '#228B22',
+  PVDD2CDG: '#90EE90', PVSS2CDG: '#228B22',
+  PVDD1ANA: '#4A90E2', PVSS1ANA: '#3A80D2',
+  PVDD2ANA: '#5BA0F2', PVSS2ANA: '#3A80D2',
+  PCORNER: '#FF6B6B',
+  PFILLER10: '#C0C0C0', PFILLER20: '#C0C0C0',
+  blank: '#FF0000',
+};
+const CORNER_COLOR = '#FF6B6B';
+const FILLER_COLOR = '#C0C0C0';
+const DEFAULT_PAD_COLOR = '#CCCCCC';
+const SELECTED_COLOR = '#3b82f6';
+
+function getDeviceColor(device, processNode) {
+  const d = String(device || '').toUpperCase();
+  if (d.includes('CORNER')) return CORNER_COLOR;
+  if (d.includes('FILLER') || d.includes('RCUT') || d === 'BLANK') return FILLER_COLOR;
+  const colorMap = String(processNode || '').toUpperCase().includes('28') ? T28_DEVICE_COLORS : T180_DEVICE_COLORS;
+  for (const [prefix, color] of Object.entries(colorMap)) {
+    if (d.startsWith(prefix)) return color;
+  }
+  return DEFAULT_PAD_COLOR;
+}
+
+// ---- SVG Icons ----
+const IconUpload = () => h('svg', {width:14,height:14,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:2,strokeLinecap:'round',strokeLinejoin:'round'},
+  h('polyline',{points:'16 16 12 12 8 16'}), h('line',{x1:12,y1:12,x2:12,y2:21}),
+  h('path',{d:'M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3'})
+);
+const IconDownload = () => h('svg', {width:14,height:14,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:2,strokeLinecap:'round',strokeLinejoin:'round'},
+  h('polyline',{points:'8 17 12 21 16 17'}), h('line',{x1:12,y1:12,x2:12,y2:21}),
+  h('path',{d:'M20.88 18.09A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.29'})
+);
+const IconCheck = () => h('svg', {width:14,height:14,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:2.5,strokeLinecap:'round',strokeLinejoin:'round'},
+  h('polyline',{points:'20 6 9 17 4 12'})
+);
+const IconUndo = () => h('svg', {width:14,height:14,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:2,strokeLinecap:'round',strokeLinejoin:'round'},
+  h('polyline',{points:'9 14 4 9 9 4'}), h('path',{d:'M20 20v-7a4 4 0 0 0-4-4H4'})
+);
+const IconRedo = () => h('svg', {width:14,height:14,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:2,strokeLinecap:'round',strokeLinejoin:'round'},
+  h('polyline',{points:'15 14 20 9 15 4'}), h('path',{d:'M4 20v-7a4 4 0 0 1 4-4h12'})
+);
+const IconPlus = () => h('svg', {width:14,height:14,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:2,strokeLinecap:'round',strokeLinejoin:'round'},
+  h('line',{x1:12,y1:5,x2:12,y2:19}), h('line',{x1:5,y1:12,x2:19,y2:12})
+);
+const IconTrash = () => h('svg', {width:14,height:14,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:2,strokeLinecap:'round',strokeLinejoin:'round'},
+  h('polyline',{points:'3 6 5 6 21 6'}),
+  h('path',{d:'M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2'})
+);
+
+// ---- PropertyEditorComponent ----
+function PropertyEditorComponent({ instance, ringConfig, onChange }) {
+  const processNode = String(ringConfig?.process_node || 'T180').toUpperCase();
+  const isT28 = processNode.includes('28');
+  const instType = String(instance.type || '').toLowerCase();
+  const isCorner = instType === 'corner' || String(instance.device || '').toUpperCase().includes('CORNER');
+  const isFiller = isFillerLike(instance);
+  const supportedDevices = getSupportedDevicesForProcess(processNode);
+
+  // ---- Pin rows local state (editable pin names + labels) ----
+  const makePinRowId = () => `pr_${Math.random().toString(36).slice(2,9)}`;
+  const [pinRows, setPinRows] = useState([]);
+
+  useEffect(() => {
+    const pc = instance.pin_connection;
+    if (pc && typeof pc === 'object' && !Array.isArray(pc)) {
+      setPinRows(prev => Object.entries(pc).map(([pin, entry], i) => ({
+        id: (prev[i] && prev[i].pin === pin) ? prev[i].id : makePinRowId(),
+        pin,
+        label: typeof entry === 'object' ? String(entry.label ?? '') : String(entry ?? ''),
+      })));
+    } else {
+      setPinRows([]);
+    }
+  }, [instance.pin_connection]);
+
+  const commitPinRows = (rows) => {
+    const cfg = {};
+    rows.forEach(r => { if (r.pin.trim()) cfg[r.pin.trim()] = { label: r.label }; });
+    onChange({ pin_connection: Object.keys(cfg).length ? cfg : undefined });
+  };
+
+  const handlePinNameChange = (id, val) => setPinRows(prev => prev.map(r => r.id === id ? { ...r, pin: val } : r));
+  const handlePinNameBlur  = (id) => { const rows = pinRows.map(r => r.id === id ? { ...r, pin: r.pin.trim() } : r); setPinRows(rows); commitPinRows(rows); };
+  const handlePinLabelChange = (id, label) => { const rows = pinRows.map(r => r.id === id ? { ...r, label } : r); setPinRows(rows); commitPinRows(rows); };
+  const handlePinDelete = (id) => { const rows = pinRows.filter(r => r.id !== id); setPinRows(rows); commitPinRows(rows); };
+  const handleAddPin = () => { setPinRows(prev => [...prev, { id: makePinRowId(), pin: `PIN_${prev.length + 1}`, label: '' }]); };
+  const handleAutoFill = () => {
+    const gen = buildPinConfigTemplate({ processNode: ringConfig?.process_node, device: instance.device, instanceName: instance.name, domain: instance.domain, pinConfigProfiles: ringConfig?.pin_connection_profiles });
+    if (gen) onChange({ pin_connection: gen });
+  };
+
+  // ---- Searchable device dropdown ----
+  const [deviceSearch, setDeviceSearch] = useState(null); // null = closed / not searching
+  const [deviceOpen, setDeviceOpen] = useState(false);
+  const currentSearch = deviceSearch !== null ? deviceSearch : (instance.device || '');
+  const filteredDevices = supportedDevices.filter(d => d.toLowerCase().includes(currentSearch.toLowerCase())).slice(0, 24);
+
+  return h('div', null,
+    // Identity
+    h('div', { className: 'prop-group' },
+      h('div', { className: 'prop-group-title' }, 'Identity'),
+      h('div', { className: 'prop-row' },
+        h('span', { className: 'prop-label' }, 'Name'),
+        h('input', { className: 'prop-input', value: instance.name || '', onChange: e => onChange({ name: e.target.value }) })
+      ),
+      h('div', { className: 'prop-row' },
+        h('span', { className: 'prop-label' }, 'Device'),
+        h('div', { style: { flex: 1, position: 'relative' } },
+          h('input', {
+            className: 'prop-input', style: { width: '100%' },
+            value: currentSearch,
+            placeholder: 'type to filter…',
+            onFocus: () => { setDeviceSearch(instance.device || ''); setDeviceOpen(true); },
+            onBlur:  () => setTimeout(() => { setDeviceOpen(false); setDeviceSearch(null); }, 130),
+            onChange: e => { setDeviceSearch(e.target.value); onChange({ device: e.target.value }); setDeviceOpen(true); },
+          }),
+          deviceOpen && filteredDevices.length > 0 && h('div', {
+            style: { position: 'absolute', top: '100%', left: 0, right: 0, background: '#16213e', border: '1px solid #1a4a8a', borderRadius: 3, zIndex: 50, maxHeight: 140, overflowY: 'auto' }
+          }, ...filteredDevices.map(d => h('div', {
+            key: d,
+            style: { padding: '4px 8px', cursor: 'pointer', fontSize: 11, color: d === instance.device ? '#60a5fa' : '#d0d8e8' },
+            onMouseDown: e => { e.preventDefault(); onChange({ device: d }); setDeviceSearch(null); setDeviceOpen(false); }
+          }, d)))
+        )
+      ),
+      h('div', { className: 'prop-row' },
+        h('span', { className: 'prop-label' }, 'Type'),
+        h('input', { className: 'prop-input', value: instance.type || '', onChange: e => onChange({ type: e.target.value }) })
+      ),
+      h('div', { className: 'prop-row' },
+        h('span', { className: 'prop-label' }, 'Side'),
+        h('span', { style: { fontSize: 12, color: '#9ab' } }, instance.side || '-')
+      ),
+      !isCorner && h('div', { className: 'prop-row' },
+        h('span', { className: 'prop-label' }, 'Order'),
+        h('span', { style: { fontSize: 12, color: '#9ab' } }, String(instance.order || '-'))
+      ),
+    ),
+
+    // Layout
+    h('div', { className: 'prop-group' },
+      h('div', { className: 'prop-group-title' }, 'Layout'),
+      h('div', { className: 'prop-row' },
+        h('span', { className: 'prop-label' }, 'Pad Width'),
+        h('input', { className: 'prop-input', type: 'number', value: instance.pad_width || '', placeholder: 'auto', onChange: e => onChange({ pad_width: e.target.value ? Number(e.target.value) : undefined }) })
+      ),
+      h('div', { className: 'prop-row' },
+        h('span', { className: 'prop-label' }, 'Pad Height'),
+        h('input', { className: 'prop-input', type: 'number', value: instance.pad_height || '', placeholder: 'auto', onChange: e => onChange({ pad_height: e.target.value ? Number(e.target.value) : undefined }) })
+      ),
+    ),
+
+    // Signal
+    !isFiller && !isCorner && h('div', { className: 'prop-group' },
+      h('div', { className: 'prop-group-title' }, 'Signal'),
+      !isT28 && h('div', { className: 'prop-row' },
+        h('span', { className: 'prop-label' }, 'Domain'),
+        h('select', { className: 'prop-select', value: instance.domain || 'analog', onChange: e => onChange({ domain: e.target.value }) },
+          h('option', { value: 'analog' }, 'Analog'),
+          h('option', { value: 'digital' }, 'Digital'),
+        )
+      ),
+      h('div', { className: 'prop-row' },
+        h('span', { className: 'prop-label' }, 'Direction'),
+        h('select', { className: 'prop-select', value: instance.direction || '', onChange: e => onChange({ direction: e.target.value || undefined }) },
+          h('option', { value: '' }, '(none)'),
+          h('option', { value: 'input' }, 'Input'),
+          h('option', { value: 'output' }, 'Output'),
+          h('option', { value: 'bidir' }, 'Bidir'),
+          h('option', { value: 'inout' }, 'Inout'),
+        )
+      ),
+      h('div', { className: 'prop-row' },
+        h('span', { className: 'prop-label' }, 'View Name'),
+        h('input', { className: 'prop-input', value: instance.view_name || '', onChange: e => onChange({ view_name: e.target.value || undefined }) })
+      ),
+      h('div', { className: 'prop-row' },
+        h('span', { className: 'prop-label' }, 'Voltage Dom.'),
+        h('input', { className: 'prop-input', value: instance.voltage_domain || '', onChange: e => onChange({ voltage_domain: e.target.value || undefined }) })
+      ),
+    ),
+
+    // Pin Connection
+    !isFiller && !isCorner && h('div', { className: 'prop-group' },
+      h('div', { className: 'prop-group-title', style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' } },
+        h('span', null, 'Pin Connection'),
+        h('div', { style: { display: 'flex', gap: 5 } },
+          h('button', { style: { background: 'none', border: 'none', color: '#7fa8d0', cursor: 'pointer', fontSize: 10 }, onClick: handleAutoFill }, 'Auto Fill'),
+          h('button', { style: { background: 'none', border: 'none', color: '#4a90d9', cursor: 'pointer', fontSize: 10 }, onClick: handleAddPin }, '+ Pin')
+        )
+      ),
+      ...pinRows.map(row =>
+        h('div', { key: row.id, className: 'pin-row' },
+          h('input', {
+            className: 'pin-input',
+            value: row.pin,
+            style: { width: 64, fontFamily: 'monospace', color: '#7fa8d0' },
+            onChange: e => handlePinNameChange(row.id, e.target.value),
+            onBlur: () => handlePinNameBlur(row.id),
+          }),
+          h('input', {
+            className: 'pin-input',
+            value: row.label,
+            onChange: e => handlePinLabelChange(row.id, e.target.value),
+          }),
+          h('button', { className: 'pin-del-btn', onClick: () => handlePinDelete(row.id) }, '×')
+        )
+      ),
+      pinRows.length === 0 && h('div', { style: { color: '#4a6a8a', fontSize: 11, padding: '4px 0' } }, 'No pin connections')
+    )
+  );
+}
+
+// ---- RingConfigEditorComponent ----
+function RingConfigEditorComponent({ ringConfig, onChange }) {
+  return h('div', null,
+    h('div', { className: 'prop-group' },
+      h('div', { className: 'prop-group-title' }, 'Ring Configuration'),
+      h('div', { className: 'prop-row' },
+        h('span', { className: 'prop-label' }, 'Process Node'),
+        h('select', {
+          className: 'prop-select', value: ringConfig.process_node || 'T180',
+          onChange: e => onChange({ process_node: e.target.value })
+        },
+          h('option', { value: 'T180' }, 'T180'),
+          h('option', { value: 'T28' }, 'T28'),
+        )
+      ),
+      h('div', { className: 'prop-row' },
+        h('span', { className: 'prop-label' }, 'Placement'),
+        h('select', {
+          className: 'prop-select', value: ringConfig.placement_order || 'counterclockwise',
+          onChange: e => onChange({ placement_order: e.target.value })
+        },
+          h('option', { value: 'counterclockwise' }, 'Counter-clockwise'),
+          h('option', { value: 'clockwise' }, 'Clockwise'),
+        )
+      ),
+      h('div', { className: 'prop-row' },
+        h('span', { className: 'prop-label' }, 'Chip Width'),
+        h('span', { style: { fontSize: 12, color: '#9ab' } }, ringConfig.chip_width ? `${Math.round(ringConfig.chip_width)} (auto)` : 'auto')
+      ),
+      h('div', { className: 'prop-row' },
+        h('span', { className: 'prop-label' }, 'Chip Height'),
+        h('span', { style: { fontSize: 12, color: '#9ab' } }, ringConfig.chip_height ? `${Math.round(ringConfig.chip_height)} (auto)` : 'auto')
+      ),
+      h('div', { className: 'prop-row' },
+        h('span', { className: 'prop-label' }, 'Pad Width'),
+        h('input', {
+          className: 'prop-input', type: 'number', value: ringConfig.pad_width || '',
+          onChange: e => onChange({ pad_width: e.target.value ? Number(e.target.value) : undefined })
+        })
+      ),
+      h('div', { className: 'prop-row' },
+        h('span', { className: 'prop-label' }, 'Corner Size'),
+        h('input', {
+          className: 'prop-input', type: 'number', value: ringConfig.corner_size || '',
+          onChange: e => onChange({ corner_size: e.target.value ? Number(e.target.value) : undefined })
+        })
+      ),
+    ),
+    h('div', { className: 'prop-group' },
+      h('div', { className: 'prop-group-title' }, 'Side Counts (read-only)'),
+      ['top','right','bottom','left'].map(side =>
+        h('div', { key: side, className: 'prop-row' },
+          h('span', { className: 'prop-label', style: { textTransform: 'capitalize' } }, side),
+          h('span', { style: { fontSize: 12, color: '#7fa8d0' } },
+            String(ringConfig[`top_count`] !== undefined
+              ? (ringConfig[`${side}_count`] || 0)
+              : (ringConfig[`num_pads_${side}`] || 0)
+            )
+          )
+        )
+      )
+    )
+  );
+}
+
+// ---- InspectorPanelComponent ----
+function InspectorPanelComponent() {
+  const { graph, selectedId, selectedIds, updateInstance, updateInstancesPinConnection, updateRingConfig } = useIORingStore();
+  const panelRef = useRef(null);
+  const [localData, setLocalData] = useState(null);
+  const [isDirty, setIsDirty] = useState(false);
+  const isDirtyRef = useRef(false);
+  const localDataRef = useRef(null);
+  const handleSaveRef = useRef(null);
+
+  const selectedInstance = selectedId ? graph.instances.find(i => i.id === selectedId) : null;
+
+  // Compute compatible-pin-batch IDs (multi-select instances with same pin-name set)
+  const supportsPinBatch = (inst) => {
+    if (!inst) return false;
+    const t = String(inst.type || '').toLowerCase();
+    const d = String(inst.device || '').toUpperCase();
+    return t !== 'corner' && t !== 'filler' && t !== 'blank' && t !== 'cut' &&
+           !d.includes('CORNER') && !d.includes('FILLER') && !d.includes('RCUT') && d !== 'BLANK';
+  };
+  const pinSig = (inst) => {
+    const pc = inst && inst.pin_connection;
+    if (!pc || typeof pc !== 'object' || Array.isArray(pc)) return null;
+    return JSON.stringify(Object.keys(pc).sort());
+  };
+  const targetSig = selectedInstance ? pinSig(selectedInstance) : null;
+  const compatiblePinBatchIds = (selectedInstance && supportsPinBatch(selectedInstance) && selectedIds.length > 1 && targetSig)
+    ? selectedIds.filter(id => { const inst = graph.instances.find(i => i.id === id); return inst && supportsPinBatch(inst) && pinSig(inst) === targetSig; })
+    : [];
+
+  useEffect(() => {
+    const d = selectedInstance ? { ...selectedInstance } : null;
+    setLocalData(d); localDataRef.current = d;
+    setIsDirty(false); isDirtyRef.current = false;
+  }, [selectedId, graph.instances]);
+
+  useEffect(() => { isDirtyRef.current = isDirty; }, [isDirty]);
+  useEffect(() => { localDataRef.current = localData; }, [localData]);
+
+  // Updated every render so the event listener always has fresh closures
+  handleSaveRef.current = () => {
+    if (!isDirtyRef.current) return;
+    const draft = localDataRef.current;
+    if (!draft || !selectedId) return;
+    const sourceInst = graph.instances.find(i => i.id === selectedId);
+    const sourcePin = sourceInst ? sourceInst.pin_connection : undefined;
+    const draftPin  = draft.pin_connection;
+    const pinChanged = JSON.stringify(normalizePinConfig(sourcePin)) !== JSON.stringify(normalizePinConfig(draftPin));
+    if (pinChanged && compatiblePinBatchIds.length > 1) {
+      updateInstancesPinConnection(compatiblePinBatchIds, draftPin);
+      const withoutPin = { ...draft }; delete withoutPin.pin_connection;
+      updateInstance(selectedId, withoutPin);
+    } else {
+      updateInstance(selectedId, draft);
+    }
+    setIsDirty(false); isDirtyRef.current = false;
+  };
+
+  // Auto-save when user clicks outside the inspector panel
+  useEffect(() => {
+    const onOutside = (e) => {
+      if (!isDirtyRef.current) return;
+      if (panelRef.current && !panelRef.current.contains(e.target))
+        setTimeout(() => { if (handleSaveRef.current) handleSaveRef.current(); }, 0);
+    };
+    document.addEventListener('pointerdown', onOutside, true);
+    return () => document.removeEventListener('pointerdown', onOutside, true);
+  }, []);
+
+  const handleInstanceChange = (partial) => { setLocalData(prev => ({ ...prev, ...partial })); setIsDirty(true); };
+  const handleSave = () => { if (handleSaveRef.current) handleSaveRef.current(); };
+
+  return h('div', { className: 'inspector-panel', ref: panelRef },
+    h('div', { className: 'inspector-header' },
+      h('span', null, selectedInstance ? 'Instance Properties' : 'Ring Config'),
+      selectedIds.length > 1 && h('span', { style: { fontSize: 10, color: '#7fa8d0' } },
+        `${selectedIds.length} sel${compatiblePinBatchIds.length > 1 ? ` · ${compatiblePinBatchIds.length} pin-batch` : ''}`)
+    ),
+    h('div', { className: 'inspector-body' },
+      selectedInstance && localData
+        ? h(PropertyEditorComponent, { instance: localData, ringConfig: graph.ring_config, onChange: handleInstanceChange })
+        : h(RingConfigEditorComponent, { ringConfig: graph.ring_config, onChange: partial => updateRingConfig(partial) })
+    ),
+    selectedInstance && h('button', {
+      className: `save-btn ${isDirty ? 'dirty' : 'clean'}`,
+      onClick: isDirty ? handleSave : undefined,
+      disabled: !isDirty
+    }, isDirty ? 'Save Changes' : 'No Changes')
+  );
+}
+
+// ---- RingCanvasComponent ----
+function RingCanvasComponent() {
+  const { graph, selectedIds, selectInstance, selectInstances, clearSelection, moveInstance, moveInstances } = useIORingStore();
+  const svgRef = useRef(null);
+  const [viewBox, setViewBox] = useState({ x: -50, y: -50, w: 1200, h: 900 });
+  const [isPanning, setIsPanning] = useState(false);
+  const [panStart, setPanStart] = useState(null);
+  const [dragState, setDragState] = useState(null);
+  const [boxSel, setBoxSel] = useState(null);
+
+  const SIDE_THICKNESS = 50;
+  const PAD_H = 40;
+  const processNode = graph.ring_config?.process_node || 'T180';
+
+  // Build layout geometry
+  const cornerSize = toPositiveNumber(graph.ring_config?.corner_size, 130);
+  const defaultPadWidth = toPositiveNumber(graph.ring_config?.pad_width, 80);
+
+  const getInstWidth = (inst) => inferPerimeterWidth(inst, graph.ring_config);
+
+  const corners = { top_left: null, top_right: null, bottom_left: null, bottom_right: null };
+  graph.instances.forEach(inst => {
+    if (inst.side === 'corner') {
+      const loc = resolveCornerLocation(inst);
+      if (loc) corners[loc] = inst;
+    }
+  });
+
+  const cTL = corners.top_left ? inferPerimeterWidth(corners.top_left, graph.ring_config) : cornerSize;
+  const cTR = corners.top_right ? inferPerimeterWidth(corners.top_right, graph.ring_config) : cornerSize;
+  const cBL = corners.bottom_left ? inferPerimeterWidth(corners.bottom_left, graph.ring_config) : cornerSize;
+  const cBR = corners.bottom_right ? inferPerimeterWidth(corners.bottom_right, graph.ring_config) : cornerSize;
+
+  const topInstances = getSideVisualInstances(graph, 'top');
+  const bottomInstances = getSideVisualInstances(graph, 'bottom');
+  const leftInstances = getSideVisualInstances(graph, 'left');
+  const rightInstances = getSideVisualInstances(graph, 'right');
+
+  const topWidth = topInstances.reduce((s, i) => s + getInstWidth(i), 0);
+  const bottomWidth = bottomInstances.reduce((s, i) => s + getInstWidth(i), 0);
+  const leftHeight = leftInstances.reduce((s, i) => s + getInstWidth(i), 0);
+  const rightHeight = rightInstances.reduce((s, i) => s + getInstWidth(i), 0);
+
+  const chipW = Math.max(topWidth + cTL + cTR, bottomWidth + cBL + cBR, 300);
+  const chipH = Math.max(leftHeight + cTL + cBL, rightHeight + cTR + cBR, 200);
+
+  const outerX = 0, outerY = 0;
+  const innerX = SIDE_THICKNESS, innerY = SIDE_THICKNESS;
+  const innerW = chipW, innerH = chipH;
+  const outerW = chipW + 2 * SIDE_THICKNESS;
+  const outerH = chipH + 2 * SIDE_THICKNESS;
+
+  // Build rects for each instance
+  const instRects = [];
+
+  // Corners
+  const cornerDefs = [
+    { loc: 'top_left', x: outerX, y: outerY, w: cTL + SIDE_THICKNESS, h: cTL + SIDE_THICKNESS },
+    { loc: 'top_right', x: outerX + outerW - cTR - SIDE_THICKNESS, y: outerY, w: cTR + SIDE_THICKNESS, h: cTR + SIDE_THICKNESS },
+    { loc: 'bottom_left', x: outerX, y: outerY + outerH - cBL - SIDE_THICKNESS, w: cBL + SIDE_THICKNESS, h: cBL + SIDE_THICKNESS },
+    { loc: 'bottom_right', x: outerX + outerW - cBR - SIDE_THICKNESS, y: outerY + outerH - cBR - SIDE_THICKNESS, w: cBR + SIDE_THICKNESS, h: cBR + SIDE_THICKNESS },
+  ];
+  cornerDefs.forEach(({ loc, x, y, w, h }) => {
+    const inst = corners[loc];
+    if (inst) instRects.push({ inst, x, y, w, h, isCorner: true });
+    else instRects.push({ inst: null, x, y, w, h, isCorner: true, loc });
+  });
+
+  // Top side
+  let topCursor = outerX + cTL + SIDE_THICKNESS;
+  topInstances.forEach(inst => {
+    const iw = getInstWidth(inst);
+    instRects.push({ inst, x: topCursor, y: outerY, w: iw, h: SIDE_THICKNESS, isTop: true });
+    topCursor += iw;
+  });
+
+  // Bottom side
+  let bottomCursor = outerX + cBL + SIDE_THICKNESS;
+  bottomInstances.forEach(inst => {
+    const iw = getInstWidth(inst);
+    instRects.push({ inst, x: bottomCursor, y: outerY + outerH - SIDE_THICKNESS, w: iw, h: SIDE_THICKNESS, isBottom: true });
+    bottomCursor += iw;
+  });
+
+  // Left side
+  let leftCursor = outerY + cTL + SIDE_THICKNESS;
+  leftInstances.forEach(inst => {
+    const iw = getInstWidth(inst);
+    instRects.push({ inst, x: outerX, y: leftCursor, w: SIDE_THICKNESS, h: iw, isLeft: true });
+    leftCursor += iw;
+  });
+
+  // Right side
+  let rightCursor = outerY + cTR + SIDE_THICKNESS;
+  rightInstances.forEach(inst => {
+    const iw = getInstWidth(inst);
+    instRects.push({ inst, x: outerX + outerW - SIDE_THICKNESS, y: rightCursor, w: SIDE_THICKNESS, h: iw, isRight: true });
+    rightCursor += iw;
+  });
+
+  const svgToClient = (svgX, svgY) => {
+    const svg = svgRef.current;
+    if (!svg) return { x: 0, y: 0 };
+    const ctm = svg.getScreenCTM();
+    return { x: svgX * ctm.a + ctm.e, y: svgY * ctm.d + ctm.f };
+  };
+
+  const clientToSvg = (clientX, clientY) => {
+    const svg = svgRef.current;
+    if (!svg) return { x: 0, y: 0 };
+    const pt = svg.createSVGPoint();
+    pt.x = clientX; pt.y = clientY;
+    const svgPt = pt.matrixTransform(svg.getScreenCTM().inverse());
+    return { x: svgPt.x, y: svgPt.y };
+  };
+
+  const onWheel = (e) => {
+    e.preventDefault();
+    const factor = e.deltaY > 0 ? 1.1 : 0.9;
+    const mouse = clientToSvg(e.clientX, e.clientY);
+    setViewBox(vb => {
+      const newW = vb.w * factor;
+      const newH = vb.h * factor;
+      const newX = mouse.x - (mouse.x - vb.x) * factor;
+      const newY = mouse.y - (mouse.y - vb.y) * factor;
+      return { x: newX, y: newY, w: newW, h: newH };
+    });
+  };
+
+  const onMouseDown = (e) => {
+    if (e.button === 1) {
+      e.preventDefault();
+      setIsPanning(true);
+      setPanStart({ x: e.clientX, y: e.clientY, vb: { ...viewBox } });
+      return;
+    }
+    if (e.button === 0 && e.target === svgRef.current || e.target.classList.contains('canvas-bg')) {
+      // Start box selection
+      const svgPt = clientToSvg(e.clientX, e.clientY);
+      setBoxSel({ x0: svgPt.x, y0: svgPt.y, x1: svgPt.x, y1: svgPt.y });
+      if (!e.ctrlKey && !e.shiftKey) clearSelection();
+    }
+  };
+
+  const onMouseMove = (e) => {
+    if (isPanning && panStart) {
+      const dx = (e.clientX - panStart.x) / (svgRef.current?.clientWidth || 1) * panStart.vb.w;
+      const dy = (e.clientY - panStart.y) / (svgRef.current?.clientHeight || 1) * panStart.vb.h;
+      setViewBox({ ...panStart.vb, x: panStart.vb.x - dx, y: panStart.vb.y - dy });
+      return;
+    }
+    if (boxSel) {
+      const svgPt = clientToSvg(e.clientX, e.clientY);
+      setBoxSel(bs => bs ? { ...bs, x1: svgPt.x, y1: svgPt.y } : null);
+    }
+  };
+
+  const onMouseUp = (e) => {
+    if (isPanning) { setIsPanning(false); setPanStart(null); return; }
+    if (boxSel) {
+      const bx0 = Math.min(boxSel.x0, boxSel.x1);
+      const bx1 = Math.max(boxSel.x0, boxSel.x1);
+      const by0 = Math.min(boxSel.y0, boxSel.y1);
+      const by1 = Math.max(boxSel.y0, boxSel.y1);
+      if (bx1 - bx0 > 5 || by1 - by0 > 5) {
+        const hitIds = instRects
+          .filter(r => r.inst && r.x + r.w > bx0 && r.x < bx1 && r.y + r.h > by0 && r.y < by1)
+          .map(r => r.inst.id);
+        if (hitIds.length) selectInstances(hitIds, e.ctrlKey || e.shiftKey);
+      }
+      setBoxSel(null);
+    }
+  };
+
+  const onInstMouseDown = (e, inst) => {
+    if (e.button !== 0) return;
+    e.stopPropagation();
+    selectInstance(inst.id, e.ctrlKey || e.shiftKey);
+
+    const startSvgPt = clientToSvg(e.clientX, e.clientY);
+    setDragState({
+      id: inst.id, side: inst.side, startX: startSvgPt.x, startY: startSvgPt.y,
+      moved: false, selectedIds: useIORingStore.getState().selectedIds,
+    });
+  };
+
+  useEffect(() => {
+    if (!dragState) return;
+    const onMove = (e) => {
+      const svgPt = clientToSvg(e.clientX, e.clientY);
+      const dx = svgPt.x - dragState.startX;
+      const dy = svgPt.y - dragState.startY;
+      if (!dragState.moved && (Math.abs(dx) > 5 || Math.abs(dy) > 5)) {
+        setDragState(ds => ({ ...ds, moved: true }));
+      }
+    };
+    const onUp = (e) => {
+      if (dragState.moved) {
+        const svgPt = clientToSvg(e.clientX, e.clientY);
+        // Determine target side from position
+        const midX = outerX + outerW / 2;
+        const midY = outerY + outerH / 2;
+        let newSide = dragState.side;
+        let newOrder = 0;
+
+        // Find closest ring segment
+        const distTop = Math.abs(svgPt.y - (outerY + SIDE_THICKNESS / 2));
+        const distBottom = Math.abs(svgPt.y - (outerY + outerH - SIDE_THICKNESS / 2));
+        const distLeft = Math.abs(svgPt.x - (outerX + SIDE_THICKNESS / 2));
+        const distRight = Math.abs(svgPt.x - (outerX + outerW - SIDE_THICKNESS / 2));
+        const minDist = Math.min(distTop, distBottom, distLeft, distRight);
+        if (minDist === distTop) newSide = 'top';
+        else if (minDist === distBottom) newSide = 'bottom';
+        else if (minDist === distLeft) newSide = 'left';
+        else newSide = 'right';
+
+        // Compute order
+        if (newSide === 'top') {
+          const rel = svgPt.x - (outerX + cTL + SIDE_THICKNESS);
+          let acc = 0; newOrder = 0;
+          for (let i = 0; i < topInstances.length; i++) {
+            acc += getInstWidth(topInstances[i]);
+            if (rel < acc) { newOrder = i; break; }
+            newOrder = i + 1;
+          }
+        } else if (newSide === 'bottom') {
+          const rel = svgPt.x - (outerX + cBL + SIDE_THICKNESS);
+          let acc = 0; newOrder = 0;
+          for (let i = 0; i < bottomInstances.length; i++) {
+            acc += getInstWidth(bottomInstances[i]);
+            if (rel < acc) { newOrder = i; break; }
+            newOrder = i + 1;
+          }
+        } else if (newSide === 'left') {
+          const rel = svgPt.y - (outerY + cTL + SIDE_THICKNESS);
+          let acc = 0; newOrder = 0;
+          for (let i = 0; i < leftInstances.length; i++) {
+            acc += getInstWidth(leftInstances[i]);
+            if (rel < acc) { newOrder = i; break; }
+            newOrder = i + 1;
+          }
+        } else {
+          const rel = svgPt.y - (outerY + cTR + SIDE_THICKNESS);
+          let acc = 0; newOrder = 0;
+          for (let i = 0; i < rightInstances.length; i++) {
+            acc += getInstWidth(rightInstances[i]);
+            if (rel < acc) { newOrder = i; break; }
+            newOrder = i + 1;
+          }
+        }
+
+        const allSelected = dragState.selectedIds;
+        if (allSelected.length > 1 && allSelected.includes(dragState.id)) {
+          moveInstances(allSelected, newSide, newOrder);
+        } else {
+          moveInstance(dragState.id, newSide, newOrder);
+        }
+      }
+      setDragState(null);
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
+  }, [dragState]);
+
+  const vbStr = `${viewBox.x} ${viewBox.y} ${viewBox.w} ${viewBox.h}`;
+  const selectedSet = new Set(selectedIds);
+
+  // Grouped legend matching RingCanvas.tsx
+  const isT28Legend = String(processNode || '').includes('28');
+  const legendGroups = isT28Legend ? [
+    { title: 'Analog IO (Blue)', items: [
+      { label: 'PDB3AC', color: '#4A90E2' }, { label: 'PVDD1AC', color: '#5BA0F2' },
+      { label: 'PVSS1AC', color: '#3A80D2' }, { label: 'PVDD3AC', color: '#87CEEB' },
+      { label: 'PVSS3AC', color: '#4682B4' }, { label: 'PVDD3A', color: '#7EC8E3' },
+      { label: 'PVSS3A', color: '#3E7AB0' },
+    ]},
+    { title: 'Digital IO (Green)', items: [
+      { label: 'PDDW16SDGZ', color: '#32CD32' }, { label: 'PVDD1DGZ', color: '#90EE90' },
+      { label: 'PVDD2POC', color: '#90EE90' }, { label: 'PVSS1DGZ', color: '#228B22' },
+      { label: 'PVSS2DGZ', color: '#228B22' },
+    ]},
+    { title: 'Corners / Fillers', items: [
+      { label: 'PCORNERA_G', color: '#FF6B6B' }, { label: 'PCORNER_G', color: '#FF8888' },
+      { label: 'PFILLER10A_G', color: '#D8D8D8' }, { label: 'PFILLER20A_G', color: '#D8D8D8' },
+      { label: 'PFILLER10_G', color: '#C0C0C0' }, { label: 'PFILLER20_G', color: '#C0C0C0' },
+      { label: 'PRCUTA_G', color: '#A0A0A0' },
+    ]},
+  ] : [
+    { title: 'Digital IO (Green)', items: [
+      { label: 'PVDD1CDG', color: '#32CD32' }, { label: 'PVSS1CDG', color: '#228B22' },
+      { label: 'PVDD2CDG', color: '#90EE90' }, { label: 'PVSS2CDG', color: '#228B22' },
+    ]},
+    { title: 'Analog IO (Blue)', items: [
+      { label: 'PVDD1ANA', color: '#4A90E2' }, { label: 'PVSS1ANA', color: '#3A80D2' },
+      { label: 'PVDD2ANA', color: '#5BA0F2' }, { label: 'PVSS2ANA', color: '#3A80D2' },
+    ]},
+    { title: 'Corners / Fillers', items: [
+      { label: 'PCORNER', color: '#FF6B6B' }, { label: 'PFILLER10', color: '#C0C0C0' },
+      { label: 'PFILLER20', color: '#C0C0C0' }, { label: 'blank', color: '#FF0000' },
+    ]},
+  ];
+
+  const renderInstRect = (rectData, idx) => {
+    const { inst, x, y, w, h: rh, isCorner, loc } = rectData;
+    if (!inst) {
+      // Empty corner placeholder
+      return h('rect', {
+        key: `empty-corner-${loc}`, x, y, width: w, height: rh,
+        fill: '#eeeeee', stroke: '#cccccc', strokeWidth: 1,
+        strokeDasharray: '4', rx: 4
+      });
+    }
+    const color = getDeviceColor(inst.device, processNode);
+    const isSelected = selectedSet.has(inst.id);
+    const isDragging = dragState?.id === inst.id && dragState?.moved;
+    const instTypeLower = String(inst.type || '').toLowerCase();
+    const isFillerInst = instTypeLower === 'filler' || instTypeLower === 'blank'
+      || String(inst.device || '').toUpperCase().includes('FILLER')
+      || String(inst.device || '').toUpperCase().includes('RCUT');
+    const isCornerInst = instTypeLower === 'corner' || String(inst.device || '').toUpperCase().includes('CORNER');
+
+    // Label: match old editor — "name:device" for IO pads, device/name for corner/filler
+    let labelText;
+    if (isCornerInst || isFillerInst) {
+      labelText = inst.device || inst.name || 'UNKNOWN';
+    } else {
+      let sigName = String(inst.name || '');
+      sigName = sigName.replace(/_(left|right|top|bottom)_\d+$/, '');
+      labelText = `${sigName}:${inst.device || 'UNKNOWN'}`;
+    }
+
+    // Font size matching old editor
+    const isT28 = String(processNode || '').includes('28');
+    const baseFontSize = isCornerInst ? (isT28 ? 6 : 8) : isFillerInst ? (isT28 ? 4.5 : 6) : (isT28 ? 5.5 : 7);
+    const fontSize = Math.max(4, Math.min(baseFontSize, Math.max(4, Math.min(w, rh) * 0.42)));
+
+    // Stroke: dashed for fillers/blanks
+    const strokeColor = isSelected ? 'blue' : 'black';
+    const strokeWidth = isSelected ? 3 : 2;
+    const strokeDash = isFillerInst ? '4 2' : undefined;
+
+    // Text: dark ink with white outline (same as old editor)
+    const textStyle = {
+      fontSize: `${fontSize}px`,
+      fill: '#111827',
+      stroke: 'rgba(255,255,255,0.92)',
+      strokeWidth: 0.9,
+      paintOrder: 'stroke fill',
+      textRendering: 'geometricPrecision',
+      fontWeight: 600,
+      userSelect: 'none',
+      pointerEvents: 'none',
+    };
+
+    let textEl;
+    if (isCornerInst || w >= rh) {
+      textEl = h('text', {
+        x: x + w / 2, y: y + rh / 2,
+        textAnchor: 'middle', dy: '.3em',
+        style: textStyle
+      }, labelText);
+    } else {
+      textEl = h('text', {
+        x: x + w / 2, y: y + rh / 2,
+        textAnchor: 'middle', dy: '.3em',
+        transform: `rotate(90, ${x + w / 2}, ${y + rh / 2})`,
+        style: textStyle
+      }, labelText);
+    }
+
+    return h('g', {
+      key: inst.id,
+      onMouseDown: e => onInstMouseDown(e, inst),
+      style: { cursor: 'pointer', opacity: isDragging ? 0.5 : 1 }
+    },
+      h('rect', {
+        x, y, width: w, height: rh,
+        fill: color, fillOpacity: 0.8,
+        stroke: strokeColor, strokeWidth,
+        strokeDasharray: strokeDash
+      }),
+      textEl
+    );
+  };
+
+  return h('div', { className: 'canvas-area' },
+    h('svg', {
+      ref: svgRef,
+      className: 'canvas-svg',
+      viewBox: vbStr,
+      onWheel,
+      onMouseDown,
+      onMouseMove,
+      onMouseUp,
+      style: { cursor: isPanning ? 'grabbing' : 'default' }
+    },
+      // Background: white with subtle grid
+      h('rect', { className: 'canvas-bg', x: viewBox.x, y: viewBox.y, width: viewBox.w, height: viewBox.h, fill: 'white' }),
+      h('defs', null,
+        h('pattern', { id: 'grid', width: 20, height: 20, patternUnits: 'userSpaceOnUse' },
+          h('path', { d: 'M 20 0 L 0 0 0 20', fill: 'none', stroke: 'gray', strokeWidth: 0.5, strokeOpacity: 0.1 })
+        )
+      ),
+      h('rect', { x: viewBox.x, y: viewBox.y, width: viewBox.w, height: viewBox.h, fill: 'url(#grid)', pointerEvents: 'none' }),
+      // Chip background (inner area)
+      h('rect', {
+        x: innerX, y: innerY, width: innerW, height: innerH,
+        fill: '#f9fafb', stroke: '#d1d5db', strokeWidth: 1
+      }),
+      // Chip label
+      h('text', {
+        x: innerX + innerW / 2, y: innerY + innerH / 2,
+        textAnchor: 'middle', dominantBaseline: 'middle',
+        fontSize: Math.min(innerW, innerH) * 0.08,
+        fill: '#9ca3af', style: { userSelect: 'none' }
+      }, `${processNode} IO Ring`),
+      // Ring outline
+      h('rect', {
+        x: outerX, y: outerY, width: outerW, height: outerH,
+        fill: 'none', stroke: '#6b7280', strokeWidth: 1
+      }),
+      // Instance rectangles
+      ...instRects.map((r, i) => renderInstRect(r, i)),
+      // Box selection overlay
+      boxSel && h('rect', {
+        x: Math.min(boxSel.x0, boxSel.x1),
+        y: Math.min(boxSel.y0, boxSel.y1),
+        width: Math.abs(boxSel.x1 - boxSel.x0),
+        height: Math.abs(boxSel.y1 - boxSel.y0),
+        fill: 'rgba(59,130,246,0.1)',
+        stroke: '#3b82f6',
+        strokeWidth: 1,
+        strokeDasharray: '4 2',
+        pointerEvents: 'none'
+      })
+    ),
+    // Legend overlay
+    h('div', { className: 'legend-overlay' },
+      h('div', { style: { fontWeight: 700, marginBottom: 4, color: '#374151', fontSize: 11 } },
+        `Color Legend (${isT28Legend ? 'T28' : 'T180'})`
+      ),
+      ...legendGroups.map(group =>
+        h('div', { key: group.title },
+          h('div', { className: 'legend-group-title' }, group.title),
+          ...group.items.map(({ color, label }) =>
+            h('div', { key: `${group.title}-${label}`, className: 'legend-item' },
+              h('div', { className: 'legend-swatch', style: { background: color } }),
+              h('span', { style: { fontSize: 10, fontFamily: 'monospace', color: '#374151' } }, label)
+            )
+          )
+        )
+      )
+    )
+  );
+}
+
+// ---- ToolbarComponent ----
+function ToolbarComponent() {
+  const { graph, selectedIds, undo, redo, deleteInstances, addInstance, history, editorSourcePath } = useIORingStore();
+  const [addMenuOpen, setAddMenuOpen] = useState(false);
+  const addMenuRef = useRef(null);
+  const fileInputRef = useRef(null);
+  const isActive = editorSourcePath === '__server__';
+  const processNode = String(graph.ring_config?.process_node || 'T180').toUpperCase();
+  const isT28 = processNode.includes('28');
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (addMenuRef.current && !addMenuRef.current.contains(e.target)) {
+        setAddMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const handleImport = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const json = JSON.parse(ev.target.result);
+        const internal = importAdapter(json);
+        useIORingStore.getState().setGraph(internal);
+      } catch (err) {
+        alert('Failed to import: ' + err.message);
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
+
+  const handleExport = () => {
+    const exported = exportAdapter(graph);
+    const blob = new Blob([JSON.stringify(exported, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'io_ring_layout.json';
+    a.click(); URL.revokeObjectURL(url);
+  };
+
+  const handleConfirm = async () => {
+    const exported = exportAdapter(graph);
+    try {
+      const res = await fetch('/confirm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(exported)
+      });
+      if (res.ok) {
+        document.title = '[CONFIRMED] IO Ring Layout Editor';
+        alert('Layout confirmed and submitted successfully!');
+      } else {
+        alert('Server returned error: ' + res.status);
+      }
+    } catch (err) {
+      alert('Failed to confirm: ' + err.message);
+    }
+  };
+
+  const addMenuItems = [
+    { label: 'IO Pad', type: 'pad' },
+    isT28 ? { label: 'Filler (T28)', type: 'filler20a' } : { label: 'Filler (T180)', type: 'filler20' },
+    isT28 ? { label: 'CUT', type: 'cut' } : null,
+    !isT28 ? { label: 'Blank', type: 'blank' } : null,
+    isT28 ? { label: 'Corner (Analog)', type: 'corner_analog' } : { label: 'Corner', type: 'corner' },
+    isT28 ? { label: 'Corner (Digital)', type: 'corner_digital' } : null,
+  ].filter(Boolean);
+
+  return h('div', { className: 'toolbar' },
+    // Import
+    h('button', { className: 'toolbar-btn', onClick: () => fileInputRef.current?.click() },
+      h(IconUpload), 'Import JSON'
+    ),
+    h('input', { ref: fileInputRef, type: 'file', accept: '.json', style: { display: 'none' }, onChange: handleImport }),
+    // Export
+    h('button', { className: 'toolbar-btn', onClick: handleExport },
+      h(IconDownload), 'Export JSON'
+    ),
+    // Confirm
+    h('button', { className: 'toolbar-btn confirm', onClick: handleConfirm },
+      h(IconCheck), 'Confirm & Continue'
+    ),
+    h('div', { className: 'toolbar-separator' }),
+    // Undo/Redo
+    h('button', {
+      className: 'toolbar-btn',
+      onClick: undo,
+      disabled: history.past.length === 0,
+      title: 'Undo (Ctrl+Z)'
+    }, h(IconUndo), 'Undo'),
+    h('button', {
+      className: 'toolbar-btn',
+      onClick: redo,
+      disabled: history.future.length === 0,
+      title: 'Redo (Ctrl+Shift+Z)'
+    }, h(IconRedo), 'Redo'),
+    h('div', { className: 'toolbar-separator' }),
+    // Add device
+    h('div', { style: { position: 'relative' }, ref: addMenuRef },
+      h('button', { className: 'toolbar-btn', onClick: () => setAddMenuOpen(o => !o) },
+        h(IconPlus), 'Add Device', h('span', { style: { marginLeft: 2, fontSize: 10 } }, '▾')
+      ),
+      addMenuOpen && h('div', { className: 'dropdown-menu' },
+        ...addMenuItems.map(item =>
+          h('div', {
+            key: item.type,
+            className: 'dropdown-item',
+            onClick: () => {
+              addInstance('top', item.type);
+              setAddMenuOpen(false);
+            }
+          }, item.label)
+        )
+      )
+    ),
+    // Delete selected
+    selectedIds.length > 0 && h('button', {
+      className: 'toolbar-btn danger',
+      onClick: () => deleteInstances(selectedIds),
+      title: 'Delete selected'
+    }, h(IconTrash), `Delete (${selectedIds.length})`)
+  );
+}
+
+// ---- LayoutEditorComponent (root) ----
+function LayoutEditorComponent() {
+  const { setGraph, setEditorSourcePath, setEditorProcessNode, undo, redo, selectedIds, deleteInstances, copySelection, pasteInstance } = useIORingStore();
+  const [loading, setLoading] = useState(true);
+  const [loadMsg, setLoadMsg] = useState('Connecting to server...');
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    setLoadMsg('Reading embedded layout data...');
+    // Data is embedded directly in the page as window.__LAYOUT_DATA__ by the Python server
+    // This avoids any fetch/CORS/tunnel issues entirely
+    setTimeout(function() {
+      try {
+        var json = window.__LAYOUT_DATA__;
+        if (!json) throw new Error('window.__LAYOUT_DATA__ is not set — the Python server may not have injected the data. Try reloading.');
+        var instances = json.instances || json.layout_data || [];
+        setLoadMsg('Building internal graph (' + instances.length + ' instances)...');
+        var internalGraph;
+        try {
+          internalGraph = importAdapter(json);
+        } catch(e) {
+          throw new Error('importAdapter failed: ' + e.message);
+        }
+        setGraph(internalGraph);
+        setEditorSourcePath('__server__');
+        setEditorProcessNode((json.ring_config && json.ring_config.process_node) ? json.ring_config.process_node.toUpperCase() : null);
+        setLoading(false);
+      } catch(err) {
+        setError(err.message || String(err));
+        setLoading(false);
+      }
+    }, 0);
+  }, []);
+
+  useEffect(() => {
+    const onKeyDown = (e) => {
+      const tag = document.activeElement?.tagName?.toLowerCase();
+      const inInput = tag === 'input' || tag === 'textarea' || tag === 'select';
+
+      if (e.ctrlKey && e.key === 'z' && !e.shiftKey) { e.preventDefault(); undo(); return; }
+      if ((e.ctrlKey && e.shiftKey && e.key === 'Z') || (e.ctrlKey && e.key === 'y')) { e.preventDefault(); redo(); return; }
+      if (!inInput && (e.key === 'Delete' || e.key === 'Backspace')) {
+        const { selectedIds } = useIORingStore.getState();
+        if (selectedIds.length) deleteInstances(selectedIds);
+        return;
+      }
+      if (e.ctrlKey && e.key === 'c') { e.preventDefault(); copySelection([]); return; }
+      if (e.ctrlKey && e.key === 'v') { e.preventDefault(); pasteInstance(null); return; }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
+
+  if (loading) return h('div', {
+    style: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', background: '#1a1a2e', color: '#7fa8d0', fontSize: 18, gap: 12 }
+  },
+    h('div', null, 'Loading IO Ring Layout...'),
+    h('div', { style: { fontSize: 13, color: '#5a7a9a', marginTop: 8 } }, loadMsg)
+  );
+
+  if (error) return h('div', {
+    style: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', background: '#1a1a2e', color: '#f87171', fontSize: 16, gap: 12 }
+  },
+    h('div', null, 'Failed to load layout data'),
+    h('div', { style: { fontSize: 13, color: '#9ab' } }, error),
+    h('button', {
+      style: { marginTop: 12, padding: '8px 20px', background: '#0f3460', border: '1px solid #1a4a8a', borderRadius: 4, color: '#e0e0e0', cursor: 'pointer' },
+      onClick: () => window.location.reload()
+    }, 'Retry')
+  );
+
+  return h('div', { className: 'editor-root layout-editor-root' },
+    h(ToolbarComponent),
+    h('div', { className: 'main-area' },
+      h(InspectorPanelComponent),
+      h(RingCanvasComponent)
+    )
+  );
+}
+
+// Mount
+try {
+  ReactDOM.createRoot(document.getElementById('root')).render(
+    React.createElement(LayoutEditorComponent)
+  );
+} catch(e) {
+  var div = document.getElementById('fatal-error');
+  if (div) { div.style.display = 'block'; div.textContent = 'Mount error:\n' + (e && e.stack ? e.stack : String(e)); }
+}
+</script>
+</body>
+</html>

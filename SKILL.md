@@ -190,6 +190,23 @@ Validation repair constraints:
 
 ### Step 6: Build Confirmed Config
 
+#### Option A: With GUI Editor Confirmation (recommended)
+
+```bash
+python3 $SCRIPTS_PATH/build_confirmed_config.py \
+  {output_dir}/io_ring_intent_graph.json \
+  {output_dir}/io_ring_confirmed.json \
+  T28
+```
+
+This will:
+1. Insert fillers and generate intermediate JSON
+2. **Open a browser-based Layout Editor** for visual review and editing
+3. Wait for user to confirm (click "Confirm & Continue" button)
+4. Merge editor changes back into the confirmed config
+
+#### Option B: Skip Editor (CLI-only mode)
+
 ```bash
 python3 $SCRIPTS_PATH/build_confirmed_config.py \
   {output_dir}/io_ring_intent_graph.json \

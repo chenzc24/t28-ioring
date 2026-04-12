@@ -3,7 +3,6 @@
 """Build confirmed IO config from initial io_config (T28): filler + IO editor confirmation only."""
 
 import json
-import time
 import traceback
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -235,21 +234,27 @@ def run_t28_editor_confirmation_pipeline(
             editor_stem = editor_stem[: -len("_intermediate_editor")]
         confirmed_path = editor_path.with_name(f"{editor_stem}_confirmed.json")
 
-        # GUI mode: wait for user to edit in frontend
-        initial_confirmed_mtime = (
-            confirmed_path.stat().st_mtime if confirmed_path.exists() else 0
-        )
-
-        print(f"⏳ SUSPENDING EXECUTION: Waiting for user confirmation at {confirmed_path}...")
-        print("   PLEASE EDIT AND SAVE/CONFIRM IN THE FRONTEND TO CONTINUE.")
-
-        print(f"   Waiting for updates on {confirmed_path.name}...")
-        while True:
-            if confirmed_path.exists():
-                current_mtime = confirmed_path.stat().st_mtime
-                if current_mtime > initial_confirmed_mtime:
-                    break
-            time.sleep(2)
+        # GUI mode: launch the standalone browser editor and wait for confirmation
+        print(f"🖥️  Launching browser-based Layout Editor...")
+        try:
+            from ...layout_editor.layout_editor_launcher import launch_layout_editor
+            launch_layout_editor(
+                intermediate_json=str(editor_path),
+                confirmed_json=str(confirmed_path),
+            )
+        except ImportError:
+            # Fallback: invoke as subprocess if relative import fails
+            import subprocess
+            import sys
+            launcher_script = Path(__file__).parent.parent.parent / "layout_editor" / "layout_editor_launcher.py"
+            print(f"   (Using subprocess launcher: {launcher_script})")
+            proc = subprocess.run(
+                [sys.executable, str(launcher_script), str(editor_path), str(confirmed_path)],
+                capture_output=False,
+                text=True,
+            )
+            if proc.returncode != 0:
+                raise RuntimeError(f"Layout editor exited with code {proc.returncode}")
 
         print(f"✅ Confirmation received! Loading validated layout from {confirmed_path}")
 
