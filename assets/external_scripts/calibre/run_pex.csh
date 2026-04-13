@@ -12,8 +12,8 @@
 #   ./run_pex.csh LLM_Layout_Design test_PEX layout T28
 
 # Initialize environment
-source /home/cshrc/.cshrc.cadence.IC618SP201
-source /home/cshrc/.cshrc.mentor
+source /home/cshrc/.cshrc.cadence.sui
+source /home/cshrc/.cshrc.mento25.sui
 
 # Determine script directory
 set SCRIPT_DIR = `dirname "$0"`

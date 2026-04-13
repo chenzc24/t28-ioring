@@ -112,73 +112,72 @@ def watchdog_callback():
 def read_until_delimiter(start_ok=b'\x02', start_err=b'\x15', end=b'\x1e'):
     """
     Read data from Virtuoso's stdout until specific delimiters are found.
-    
+
     Args:
         start_ok: Byte marker for successful response start (STX - Start of Text)
-        start_err: Byte marker for error response start (NAK - Negative Acknowledgment)  
+        start_err: Byte marker for error response start (NAK - Negative Acknowledgment)
         end: Byte marker for response end (RS - Record Separator)
-    
+
     Returns:
         Bytearray containing the response from Virtuoso
-        
+
     Protocol:
         - Virtuoso responses start with STX (0x02) for success or NAK (0x15) for error
         - Responses end with RS (0x1E)
         - This function handles the binary protocol between daemon and Virtuoso
     """
     result = bytearray()
-    
+
+    # Normalize delimiters for Python 3 (sys.stdin.read returns str)
+    delim_ok = start_ok.decode('latin1') if isinstance(start_ok, bytes) else start_ok
+    delim_err = start_err.decode('latin1') if isinstance(start_err, bytes) else start_err
+    delim_end = end.decode('latin1') if isinstance(end, bytes) else end
+
     # Wait for start marker
     while True:
         try:
             ch = sys.stdin.read(1)
-            if ch in [start_ok, start_err]:
+            if ch in [delim_ok, delim_err]:
                 break
         except IOError as e:
             if e.errno == errno.EAGAIN or e.errno == errno.EWOULDBLOCK:
-                # No data available, check timeout and continue
                 if timeout_flag:
                     return "\x15TimeoutError"
-                time.sleep(0.001)  # Short sleep to avoid busy waiting
+                time.sleep(0.001)
                 continue
             else:
                 raise
         if timeout_flag:
-            # Python 2.7 compatibility: return string directly
             return "\x15TimeoutError"
-    
-    # Python 2.7 compatibility: convert string to bytes for bytearray
-    if isinstance(ch, str):
-        result.extend(ch.encode('latin1'))
-    else:
+
+    if isinstance(ch, bytes):
         result.extend(ch)
-    
+    else:
+        result.extend(ch.encode('latin1'))
+
     # Read content until end marker
     while True:
         try:
             ch = sys.stdin.read(1)
             if timeout_flag:
-                # Python 2.7 compatibility: return string directly
                 return "\x15TimeoutError"
-            if not ch:  # Python 2.7: empty string means no data
+            if not ch:
                 continue
-            if ch == end:
+            if ch == delim_end:
                 break
-            # Python 2.7 compatibility: convert string to bytes for bytearray
-            if isinstance(ch, str):
-                result.extend(ch.encode('latin1'))
-            else:
+            if isinstance(ch, bytes):
                 result.extend(ch)
+            else:
+                result.extend(ch.encode('latin1'))
         except IOError as e:
             if e.errno == errno.EAGAIN or e.errno == errno.EWOULDBLOCK:
-                # No data available, check timeout and continue
                 if timeout_flag:
                     return "\x15TimeoutError"
-                time.sleep(0.001)  # Short sleep to avoid busy waiting
+                time.sleep(0.001)
                 continue
             else:
                 raise
-    
+
     return result
 
 def handle_external_connection(conn, addr):
@@ -211,12 +210,12 @@ def handle_external_connection(conn, addr):
         timeout_flag = False
         
         # Send skill script to Virtuoso
-        # Python 2.7 compatibility: ensure skill_code is string
-        if hasattr(skill_code, 'encode'):  # Check if it's unicode
-            skill_code = skill_code.encode('utf-8')
-        
+        # Ensure skill_code is a str for sys.stdout.write (Python 3)
+        if isinstance(skill_code, bytes):
+            skill_code = skill_code.decode('utf-8')
+
         # Clear stdin buffer before writing (non-blocking read until empty)
-  
+
         while True:
             try:
                 ch = sys.stdin.read(1)
@@ -227,7 +226,7 @@ def handle_external_connection(conn, addr):
                     break  # No data available
                 else:
                     break  # Other error, stop clearing
-        
+
         sys.stdout.write(skill_code)
         sys.stdout.flush()
         
@@ -246,27 +245,21 @@ def handle_external_connection(conn, addr):
         # Cancel watchdog timer
         watchdog_timer.cancel()
         
-        # Python 2.7 compatibility: handle returnData properly
+        # Python 3 compatible response sending
         if isinstance(returnData, bytearray):
-            conn.sendall(str(returnData))
-        elif hasattr(returnData, 'encode'):  # Check if it's unicode
+            conn.sendall(bytes(returnData))
+        elif isinstance(returnData, str):
             conn.sendall(returnData.encode('utf-8'))
         else:
             conn.sendall(returnData)
             
     except ValueError as e:
-        # Python 2.7 compatibility: handle JSON decode errors
         error_msg = "\x15JSONDecodeError: {0}".format(str(e))
-        if hasattr(error_msg, 'encode'):  # Check if it's unicode
-            error_msg = error_msg.encode('utf-8')
-        conn.sendall(error_msg)
+        conn.sendall(error_msg.encode('utf-8'))
     except Exception as e:
-        # Python 2.7 compatibility: except Exception, e syntax
         traceback.print_exc()
         error_msg = "\x15{0}".format(str(e))
-        if hasattr(error_msg, 'encode'):  # Check if it's unicode
-            error_msg = error_msg.encode('utf-8')
-        conn.sendall(error_msg)
+        conn.sendall(error_msg.encode('utf-8'))
     finally:
         # Ensure watchdog timer is cleaned up
         timeout_flag = True

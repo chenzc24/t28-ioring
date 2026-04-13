@@ -10,6 +10,13 @@ import threading
 import time
 import webbrowser
 from http.server import HTTPServer, BaseHTTPRequestHandler
+from socketserver import ThreadingMixIn
+
+
+class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
+    """Multi-threaded HTTP server so the editor page can be reopened after tab close."""
+    daemon_threads = True
+    allow_reuse_address = True
 from pathlib import Path
 
 
@@ -126,7 +133,7 @@ def launch_layout_editor(intermediate_json: str, confirmed_json: str, port: int 
         confirmation_event,
     )
 
-    server = HTTPServer(('localhost', actual_port), handler_class)
+    server = ThreadedHTTPServer(('localhost', actual_port), handler_class)
     server_thread = threading.Thread(target=server.serve_forever, daemon=True)
     server_thread.start()
 
@@ -137,10 +144,7 @@ def launch_layout_editor(intermediate_json: str, confirmed_json: str, port: int 
     print(f"╠══════════════════════════════════════════════════════════════╣")
     print(f"║  Server running on port: {actual_port:<5}                              ║")
     print(f"║                                                              ║")
-    print(f"║  If running over SSH / VS Code Remote, open a LOCAL         ║")
-    print(f"║  terminal and forward the port first:                       ║")
-    print(f"║                                                              ║")
-    print(f"║    ssh -L {actual_port}:localhost:{actual_port} <your-server>              ║")
+    print(f"║  Open in your browser (Ctrl+Click the URL below):           ║")
     print(f"║                                                              ║")
     print(f"║  Then open in your local browser:                           ║")
     print(f"║    {url:<57}║")
@@ -148,15 +152,28 @@ def launch_layout_editor(intermediate_json: str, confirmed_json: str, port: int 
     print(f"║  Click \"Confirm & Continue\" when done editing.              ║")
     print(f"╚══════════════════════════════════════════════════════════════╝")
     print(f"")
-    print(f"[layout_editor] Waiting for confirmation... (server stays open until you confirm)")
+
+    # Print the URL on its own line so terminals (VS Code, iTerm2, etc.) make it clickable
+    print(f"  >>> {url} <<<")
+    print(f"")
 
     if not no_open:
-        # Only attempt browser open if a display is available (local run)
-        display = os.environ.get('DISPLAY', '') or os.environ.get('WAYLAND_DISPLAY', '')
-        if display:
-            time.sleep(0.3)
-            webbrowser.open(url)
-        # else: SSH/headless — user must open browser manually via port forwarding
+        # Wait longer for VS Code Remote to detect the port and set up forwarding.
+        # VS Code's port-auto-detection can take 1-2 seconds.
+        print(f"[layout_editor] Waiting for port forwarding to initialize...")
+        time.sleep(1.5)
+        try:
+            result = webbrowser.open(url)
+            if result:
+                print(f"[layout_editor] Browser open request sent successfully.")
+            else:
+                print(f"[layout_editor] webbrowser.open() returned False — browser may not be available.")
+                print(f"[layout_editor] Please open the URL manually in your browser.")
+        except Exception as e:
+            print(f"[layout_editor] Could not auto-open browser: {e}")
+            print(f"[layout_editor] Please open the URL manually in your browser.")
+
+    print(f"[layout_editor] Waiting for confirmation... (server stays open until you confirm)")
 
     confirmation_event.wait()
     server.shutdown()

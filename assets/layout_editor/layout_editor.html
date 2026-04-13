@@ -13,22 +13,22 @@
     .layout-editor-root { font-size: 14px; }
     details > summary { list-style: none; }
     details > summary::-webkit-details-marker { display: none; }
-    select, input { outline: none; }
 
     .editor-root {
       display: flex;
       flex-direction: column;
       height: 100vh;
-      background: #1a1a2e;
-      color: #e0e0e0;
+      background: #fff;
+      color: #1f2937;
     }
     .toolbar {
       display: flex;
       align-items: center;
       gap: 8px;
-      padding: 6px 12px;
-      background: #16213e;
-      border-bottom: 1px solid #0f3460;
+      padding: 6px 16px;
+      height: 56px;
+      background: #f9fafb;
+      border-bottom: 1px solid #e5e7eb;
       flex-shrink: 0;
       flex-wrap: wrap;
     }
@@ -37,58 +37,57 @@
       align-items: center;
       gap: 4px;
       padding: 5px 10px;
-      background: #0f3460;
-      border: 1px solid #1a4a8a;
-      border-radius: 4px;
-      color: #e0e0e0;
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: 6px;
+      color: #4b5563;
       cursor: pointer;
-      font-size: 12px;
+      font-size: 13px;
       transition: background 0.15s;
     }
-    .toolbar-btn:hover { background: #1a4a8a; }
-    .toolbar-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-    .toolbar-btn.confirm { background: #1b4332; border-color: #2d6a4f; color: #74c69d; }
-    .toolbar-btn.confirm:hover { background: #2d6a4f; }
-    .toolbar-btn.danger { background: #4a1010; border-color: #8a1a1a; color: #ff8080; }
-    .toolbar-btn.danger:hover { background: #8a1a1a; }
-    .toolbar-separator { width: 1px; height: 24px; background: #0f3460; margin: 0 4px; }
+    .toolbar-btn:hover { background: #e5e7eb; }
+    .toolbar-btn:disabled { color: #d1d5db; cursor: not-allowed; }
+    .toolbar-btn.confirm { color: #15803d; }
+    .toolbar-btn.confirm:hover { background: #dcfce7; }
+    .toolbar-btn.danger { background: #fee2e2; color: #dc2626; border-color: transparent; }
+    .toolbar-btn.danger:hover { background: #fecaca; }
+    .toolbar-separator { width: 1px; height: 24px; background: #d1d5db; margin: 0 4px; }
     .main-area {
       display: flex;
       flex: 1;
       overflow: hidden;
     }
     .inspector-panel {
-      width: 280px;
-      background: #16213e;
-      border-right: 1px solid #0f3460;
+      width: 320px;
+      background: #fff;
+      border-right: 1px solid #e5e7eb;
       display: flex;
       flex-direction: column;
       overflow-y: auto;
       flex-shrink: 0;
     }
     .inspector-header {
-      padding: 10px 12px;
-      font-size: 11px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      color: #7fa8d0;
-      border-bottom: 1px solid #0f3460;
+      padding: 12px 16px;
+      font-size: 13px;
+      font-weight: 500;
+      color: #1f2937;
+      background: #f9fafb;
+      border-bottom: 1px solid #e5e7eb;
       display: flex;
       justify-content: space-between;
       align-items: center;
     }
-    .inspector-body { padding: 8px; flex: 1; overflow-y: auto; }
+    .inspector-body { padding: 16px; flex: 1; overflow-y: auto; }
     .prop-group { margin-bottom: 12px; }
     .prop-group-title {
       font-size: 10px;
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.8px;
-      color: #5a7a9a;
+      color: #6b7280;
       margin-bottom: 6px;
       padding-bottom: 3px;
-      border-bottom: 1px solid #0f3460;
+      border-bottom: 1px solid #e5e7eb;
     }
     .prop-row {
       display: flex;
@@ -98,29 +97,29 @@
     }
     .prop-label {
       font-size: 11px;
-      color: #9ab;
+      color: #6b7280;
       width: 90px;
       flex-shrink: 0;
       text-align: right;
     }
     .prop-input {
       flex: 1;
-      background: #0f3460;
-      border: 1px solid #1a4a8a;
-      border-radius: 3px;
-      color: #e0e0e0;
-      padding: 3px 6px;
-      font-size: 12px;
+      background: #fff;
+      border: 1px solid #d1d5db;
+      border-radius: 4px;
+      color: #1f2937;
+      padding: 4px 8px;
+      font-size: 13px;
     }
-    .prop-input:focus { border-color: #4a90d9; }
+    .prop-input:focus { border-color: #3b82f6; outline: none; box-shadow: 0 0 0 1px #3b82f6; }
     .prop-select {
       flex: 1;
-      background: #0f3460;
-      border: 1px solid #1a4a8a;
-      border-radius: 3px;
-      color: #e0e0e0;
-      padding: 3px 6px;
-      font-size: 12px;
+      background: #fff;
+      border: 1px solid #d1d5db;
+      border-radius: 4px;
+      color: #1f2937;
+      padding: 4px 8px;
+      font-size: 13px;
     }
     .pin-row {
       display: flex;
@@ -131,48 +130,51 @@
     .pin-name {
       font-family: monospace;
       font-size: 11px;
-      color: #7fa8d0;
+      color: #3b82f6;
       width: 70px;
       flex-shrink: 0;
     }
     .pin-input {
       flex: 1;
-      background: #0f3460;
-      border: 1px solid #1a4a8a;
-      border-radius: 3px;
-      color: #e0e0e0;
-      padding: 2px 5px;
-      font-size: 11px;
+      background: #fff;
+      border: 1px solid #d1d5db;
+      border-radius: 4px;
+      color: #1f2937;
+      padding: 3px 6px;
+      font-size: 12px;
+      font-family: monospace;
     }
+    .pin-input:focus { border-color: #3b82f6; outline: none; box-shadow: 0 0 0 1px #3b82f6; }
     .pin-del-btn {
       background: none;
       border: none;
-      color: #f87171;
+      color: #ef4444;
       cursor: pointer;
       padding: 2px;
-      font-size: 14px;
+      font-size: 12px;
       line-height: 1;
     }
-    .pin-del-btn:hover { color: #ff2020; }
+    .pin-del-btn:hover { color: #b91c1c; }
     .save-btn {
       margin: 8px;
       padding: 6px 12px;
-      border-radius: 4px;
+      border-radius: 6px;
       font-size: 12px;
+      font-weight: 500;
       cursor: pointer;
       border: 1px solid;
       transition: all 0.15s;
     }
     .save-btn.dirty {
-      background: #1a4a8a;
-      border-color: #4a90d9;
+      background: #2563eb;
+      border-color: #2563eb;
       color: #fff;
     }
-    .save-btn.dirty:hover { background: #2a5aaa; }
+    .save-btn.dirty:hover { background: #1d4ed8; }
     .save-btn.clean {
-      background: #0a2040;
-      border-color: #0f3460;
-      color: #5a7a9a;
+      background: #f3f4f6;
+      border-color: #e5e7eb;
+      color: #9ca3af;
       cursor: default;
     }
     .canvas-area {
@@ -205,31 +207,33 @@
       position: absolute;
       top: 100%;
       left: 0;
-      background: #16213e;
-      border: 1px solid #1a4a8a;
-      border-radius: 4px;
+      background: #fff;
+      border: 1px solid #e5e7eb;
+      border-radius: 6px;
       z-index: 100;
       min-width: 160px;
-      box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+      box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+      padding: 4px;
     }
     .dropdown-item {
-      padding: 7px 12px;
+      padding: 8px 12px;
       cursor: pointer;
-      font-size: 12px;
-      color: #d0d8e8;
+      font-size: 13px;
+      color: #374151;
+      border-radius: 4px;
       white-space: nowrap;
     }
-    .dropdown-item:hover { background: #0f3460; }
+    .dropdown-item:hover { background: #f3f4f6; }
     .no-select-msg {
       padding: 20px 12px;
-      color: #4a6a8a;
+      color: #9ca3af;
       font-size: 12px;
       text-align: center;
     }
     .inst-rect { cursor: pointer; }
     .inst-rect:hover { filter: brightness(1.15); }
     .selected-ring {
-      stroke: #4af;
+      stroke: #3b82f6;
       stroke-width: 2;
       fill: none;
       pointer-events: none;
@@ -238,7 +242,7 @@
 </head>
 <body>
 <div id="root"></div>
-<div id="fatal-error" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:#1a1a2e;color:#f87171;font-family:monospace;padding:30px;font-size:14px;z-index:9999;overflow:auto;white-space:pre-wrap;"></div>
+<div id="fatal-error" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:#fff;color:#dc2626;font-family:monospace;padding:30px;font-size:14px;z-index:9999;overflow:auto;white-space:pre-wrap;"></div>
 <script>
 // Global error reporter — shows any uncaught JS error on the page instead of blank white
 window.onerror = function(msg, src, line, col, err) {
@@ -415,7 +419,9 @@ const inferPerimeterWidth = (inst,ringConfig) => {
   if(compType==='corner'||device.includes('CORNER'))return toPositiveNumber(inst.pad_width??inst.pad_height??ringConfig.corner_size,130);
   if(compType==='filler'||compType==='blank'||device.includes('FILLER')||device.includes('RCUT')||device==='BLANK'){
     const explicit=toPositiveNumber(inst.pad_width,NaN); if(Number.isFinite(explicit))return explicit;
-    const m=device.match(/PFILLER(\d+)/); if(m)return toPositiveNumber(m[1],10); if(device==='BLANK')return 10; return 10;
+    const m=device.match(/PFILLER(\d+)/); if(m)return toPositiveNumber(m[1],10); if(device==='BLANK')return 10;
+    if(device.includes('RCUT'))return toPositiveNumber(ringConfig.pad_width,20);
+    return 10;
   }
   return toPositiveNumber(inst.pad_width??ringConfig.pad_width,80);
 };
@@ -605,15 +611,37 @@ const IconTrash = () => h('svg', {width:14,height:14,viewBox:'0 0 24 24',fill:'n
 );
 
 // ---- PropertyEditorComponent ----
+// Matches old PropertyEditor.tsx: flat layout, hidden keys, type as select for T28
 function PropertyEditorComponent({ instance, ringConfig, onChange }) {
   const processNode = String(ringConfig?.process_node || 'T180').toUpperCase();
   const isT28 = processNode.includes('28');
   const instType = String(instance.type || '').toLowerCase();
-  const isCorner = instType === 'corner' || String(instance.device || '').toUpperCase().includes('CORNER');
-  const isFiller = isFillerLike(instance);
-  const supportedDevices = getSupportedDevicesForProcess(processNode);
+  const instDevice = String(instance.device || '').toUpperCase();
+  const isCornerInst = instType === 'corner' || instDevice.includes('CORNER');
+  const isFillerInst = isFillerLike(instance);
+  const isPadBusiness = !isCornerInst && !isFillerInst;
+  const deviceClass = classifyDeviceForProcess(processNode, instDevice);
+  const isDigitalDevice = deviceClass === 'digital';
+  const normalizedDomain = String(instance.domain || '').toLowerCase();
+  const isAnalogDomain = normalizedDomain === 'analog';
+  const allowDomain = isPadBusiness && !isT28;
+  const allowDirection = isPadBusiness && ((isT28 && isDigitalDevice) || (!isT28 && !isAnalogDomain));
 
-  // ---- Pin rows local state (editable pin names + labels) ----
+  // Device suggestions filtered by instance type (matching old getSuggestedDevicesByType)
+  const T28_CORNER_DEVICES = ['PCORNERA_G', 'PCORNER_G'];
+  const T180_CORNER_DEVICES = ['PCORNER'];
+  const T28_FILLER_DEVICES = ['PFILLER10A_G','PFILLER20A_G','PFILLER10_G','PFILLER20_G','PRCUTA_G'];
+  const T180_FILLER_DEVICES = ['PFILLER10','PFILLER20'];
+  const T180_BLANK_DEVICES = ['BLANK'];
+  const getSuggestedDevices = () => {
+    if (instType === 'corner') return isT28 ? T28_CORNER_DEVICES : T180_CORNER_DEVICES;
+    if (instType === 'filler') return isT28 ? T28_FILLER_DEVICES : T180_FILLER_DEVICES;
+    if (instType === 'blank') return isT28 ? [] : T180_BLANK_DEVICES;
+    return getSupportedDevicesForProcess(processNode);
+  };
+  const suggestedDevices = getSuggestedDevices();
+
+  // ---- Pin rows local state ----
   const makePinRowId = () => `pr_${Math.random().toString(36).slice(2,9)}`;
   const [pinRows, setPinRows] = useState([]);
 
@@ -647,188 +675,216 @@ function PropertyEditorComponent({ instance, ringConfig, onChange }) {
   };
 
   // ---- Searchable device dropdown ----
-  const [deviceSearch, setDeviceSearch] = useState(null); // null = closed / not searching
+  const [deviceSearch, setDeviceSearch] = useState(null);
   const [deviceOpen, setDeviceOpen] = useState(false);
   const currentSearch = deviceSearch !== null ? deviceSearch : (instance.device || '');
-  const filteredDevices = supportedDevices.filter(d => d.toLowerCase().includes(currentSearch.toLowerCase())).slice(0, 24);
+  const filteredDevices = suggestedDevices.filter(d => d.toLowerCase().includes(currentSearch.toLowerCase())).slice(0, 24);
 
-  return h('div', null,
-    // Identity
-    h('div', { className: 'prop-group' },
-      h('div', { className: 'prop-group-title' }, 'Identity'),
-      h('div', { className: 'prop-row' },
-        h('span', { className: 'prop-label' }, 'Name'),
-        h('input', { className: 'prop-input', value: instance.name || '', onChange: e => onChange({ name: e.target.value }) })
-      ),
-      h('div', { className: 'prop-row' },
-        h('span', { className: 'prop-label' }, 'Device'),
-        h('div', { style: { flex: 1, position: 'relative' } },
-          h('input', {
-            className: 'prop-input', style: { width: '100%' },
-            value: currentSearch,
-            placeholder: 'type to filter…',
-            onFocus: () => { setDeviceSearch(instance.device || ''); setDeviceOpen(true); },
-            onBlur:  () => setTimeout(() => { setDeviceOpen(false); setDeviceSearch(null); }, 130),
-            onChange: e => { setDeviceSearch(e.target.value); onChange({ device: e.target.value }); setDeviceOpen(true); },
-          }),
-          deviceOpen && filteredDevices.length > 0 && h('div', {
-            style: { position: 'absolute', top: '100%', left: 0, right: 0, background: '#16213e', border: '1px solid #1a4a8a', borderRadius: 3, zIndex: 50, maxHeight: 140, overflowY: 'auto' }
-          }, ...filteredDevices.map(d => h('div', {
-            key: d,
-            style: { padding: '4px 8px', cursor: 'pointer', fontSize: 11, color: d === instance.device ? '#60a5fa' : '#d0d8e8' },
-            onMouseDown: e => { e.preventDefault(); onChange({ device: d }); setDeviceSearch(null); setDeviceOpen(false); }
-          }, d)))
-        )
-      ),
-      h('div', { className: 'prop-row' },
-        h('span', { className: 'prop-label' }, 'Type'),
-        h('input', { className: 'prop-input', value: instance.type || '', onChange: e => onChange({ type: e.target.value }) })
-      ),
-      h('div', { className: 'prop-row' },
-        h('span', { className: 'prop-label' }, 'Side'),
-        h('span', { style: { fontSize: 12, color: '#9ab' } }, instance.side || '-')
-      ),
-      !isCorner && h('div', { className: 'prop-row' },
-        h('span', { className: 'prop-label' }, 'Order'),
-        h('span', { style: { fontSize: 12, color: '#9ab' } }, String(instance.order || '-'))
-      ),
+  // ---- Build visible fields in display order (matching old FIELD_DISPLAY_ORDER) ----
+  const labelStyle = { fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, color: '#6b7280', marginBottom: 4, marginTop: 10 };
+  const rowStyle = { display: 'flex', alignItems: 'center', gap: 6, marginBottom: 5 };
+  const labelSpanStyle = { fontSize: 11, color: '#6b7280', width: 80, flexShrink: 0, textAlign: 'right' };
+  const inputCls = 'prop-input';
+  const selectCls = 'prop-select';
+
+  const fields = [];
+  // name
+  fields.push(h('div', { key: 'name', style: labelStyle }, 'NAME'),
+    h('div', { style: rowStyle },
+      h('input', { className: inputCls, style: { flex: 1 }, value: instance.name || '', onChange: e => onChange({ name: e.target.value }) })
+    ));
+  // device
+  fields.push(h('div', { key: 'device', style: labelStyle }, 'DEVICE'),
+    h('div', { style: { ...rowStyle, position: 'relative', flex: 1 } },
+      h('input', {
+        className: inputCls, style: { width: '100%' },
+        value: currentSearch, placeholder: 'Type or choose device',
+        onFocus: () => { setDeviceSearch(instance.device || ''); setDeviceOpen(true); },
+        onBlur:  () => setTimeout(() => { setDeviceOpen(false); setDeviceSearch(null); }, 130),
+        onChange: e => { setDeviceSearch(e.target.value); onChange({ device: e.target.value }); setDeviceOpen(true); },
+      }),
+      deviceOpen && filteredDevices.length > 0 && h('div', {
+        style: { position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 6, zIndex: 50, maxHeight: 140, overflowY: 'auto', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }
+      }, ...filteredDevices.map(d => h('div', {
+        key: d,
+        style: { padding: '6px 10px', cursor: 'pointer', fontSize: 12, color: d === instance.device ? '#2563eb' : '#374151', borderRadius: 4 },
+        onMouseDown: e => { e.preventDefault(); onChange({ device: d }); setDeviceSearch(null); setDeviceOpen(false); }
+      }, d)))
     ),
+    h('div', { style: { fontSize: 10, color: '#9ca3af', marginBottom: 6 } },
+      `Suggested devices for ${processNode}/${instType || 'pad'}: ${suggestedDevices.length}`));
 
-    // Layout
-    h('div', { className: 'prop-group' },
-      h('div', { className: 'prop-group-title' }, 'Layout'),
-      h('div', { className: 'prop-row' },
-        h('span', { className: 'prop-label' }, 'Pad Width'),
-        h('input', { className: 'prop-input', type: 'number', value: instance.pad_width || '', placeholder: 'auto', onChange: e => onChange({ pad_width: e.target.value ? Number(e.target.value) : undefined }) })
-      ),
-      h('div', { className: 'prop-row' },
-        h('span', { className: 'prop-label' }, 'Pad Height'),
-        h('input', { className: 'prop-input', type: 'number', value: instance.pad_height || '', placeholder: 'auto', onChange: e => onChange({ pad_height: e.target.value ? Number(e.target.value) : undefined }) })
-      ),
-    ),
+  // type — select for T28 pad (pad/inner_pad), text for others
+  const useT28PadTypeSelector = isT28 && isPadBusiness;
+  fields.push(h('div', { key: 'type', style: labelStyle }, 'TYPE'));
+  if (useT28PadTypeSelector) {
+    const selectedType = instType === 'inner_pad' ? 'inner_pad' : 'pad';
+    fields.push(h('div', { style: rowStyle },
+      h('select', { className: selectCls, style: { flex: 1 }, value: selectedType, onChange: e => onChange({ type: e.target.value }) },
+        h('option', { value: 'pad' }, 'pad'),
+        h('option', { value: 'inner_pad' }, 'inner_pad'))));
+  } else {
+    fields.push(h('div', { style: rowStyle },
+      h('input', { className: inputCls, style: { flex: 1 }, value: instance.type || '', disabled: true })));
+  }
 
-    // Signal
-    !isFiller && !isCorner && h('div', { className: 'prop-group' },
-      h('div', { className: 'prop-group-title' }, 'Signal'),
-      !isT28 && h('div', { className: 'prop-row' },
-        h('span', { className: 'prop-label' }, 'Domain'),
-        h('select', { className: 'prop-select', value: instance.domain || 'analog', onChange: e => onChange({ domain: e.target.value }) },
-          h('option', { value: 'analog' }, 'Analog'),
-          h('option', { value: 'digital' }, 'Digital'),
-        )
-      ),
-      h('div', { className: 'prop-row' },
-        h('span', { className: 'prop-label' }, 'Direction'),
-        h('select', { className: 'prop-select', value: instance.direction || '', onChange: e => onChange({ direction: e.target.value || undefined }) },
-          h('option', { value: '' }, '(none)'),
-          h('option', { value: 'input' }, 'Input'),
-          h('option', { value: 'output' }, 'Output'),
-          h('option', { value: 'bidir' }, 'Bidir'),
-          h('option', { value: 'inout' }, 'Inout'),
-        )
-      ),
-      h('div', { className: 'prop-row' },
-        h('span', { className: 'prop-label' }, 'View Name'),
-        h('input', { className: 'prop-input', value: instance.view_name || '', onChange: e => onChange({ view_name: e.target.value || undefined }) })
-      ),
-      h('div', { className: 'prop-row' },
-        h('span', { className: 'prop-label' }, 'Voltage Dom.'),
-        h('input', { className: 'prop-input', value: instance.voltage_domain || '', onChange: e => onChange({ voltage_domain: e.target.value || undefined }) })
-      ),
-    ),
+  // pin_connection — only for pad business instances
+  if (isPadBusiness) {
+    const pinLabel = h('div', { key: 'pin_header', style: { ...labelStyle, display: 'flex', justifyContent: 'space-between', alignItems: 'center' } },
+      h('span', null, 'PIN CONNECTION'),
+      h('div', { style: { display: 'flex', gap: 5 } },
+        h('button', { style: { background: 'none', border: 'none', color: '#2563eb', cursor: 'pointer', fontSize: 10 }, onClick: handleAutoFill }, 'Auto Fill Pins'),
+        h('button', { style: { background: 'none', border: 'none', color: '#2563eb', cursor: 'pointer', fontSize: 10 }, onClick: handleAddPin }, '+ Add Pin')
+      )
+    );
+    const processLabel = h('div', { style: { fontSize: 10, color: '#9ca3af', marginBottom: 4 } },
+      'Process: ', h('span', { style: { fontWeight: 600, color: '#374151' } }, processNode),
+      ` (${supportedProcessNodes().join(', ')})`
+    );
+    const pinRowElems = pinRows.map(row =>
+      h('div', { key: row.id, className: 'pin-row' },
+        h('input', { className: 'pin-input', value: row.pin, style: { width: 64, fontFamily: 'monospace', color: '#374151' },
+          onChange: e => handlePinNameChange(row.id, e.target.value), onBlur: () => handlePinNameBlur(row.id) }),
+        h('input', { className: 'pin-input', value: row.label, style: { flex: 1 },
+          onChange: e => handlePinLabelChange(row.id, e.target.value) }),
+        h('button', { className: 'pin-del-btn', onClick: () => handlePinDelete(row.id) }, '×')
+      )
+    );
+    const noPins = pinRows.length === 0 ? h('div', { style: { color: '#9ca3af', fontSize: 11, padding: '4px 0' } }, 'No pin connections') : null;
+    fields.push(pinLabel, processLabel, ...pinRowElems, noPins);
+  }
 
-    // Pin Connection
-    !isFiller && !isCorner && h('div', { className: 'prop-group' },
-      h('div', { className: 'prop-group-title', style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' } },
-        h('span', null, 'Pin Connection'),
-        h('div', { style: { display: 'flex', gap: 5 } },
-          h('button', { style: { background: 'none', border: 'none', color: '#7fa8d0', cursor: 'pointer', fontSize: 10 }, onClick: handleAutoFill }, 'Auto Fill'),
-          h('button', { style: { background: 'none', border: 'none', color: '#4a90d9', cursor: 'pointer', fontSize: 10 }, onClick: handleAddPin }, '+ Pin')
-        )
-      ),
-      ...pinRows.map(row =>
-        h('div', { key: row.id, className: 'pin-row' },
-          h('input', {
-            className: 'pin-input',
-            value: row.pin,
-            style: { width: 64, fontFamily: 'monospace', color: '#7fa8d0' },
-            onChange: e => handlePinNameChange(row.id, e.target.value),
-            onBlur: () => handlePinNameBlur(row.id),
-          }),
-          h('input', {
-            className: 'pin-input',
-            value: row.label,
-            onChange: e => handlePinLabelChange(row.id, e.target.value),
-          }),
-          h('button', { className: 'pin-del-btn', onClick: () => handlePinDelete(row.id) }, '×')
-        )
-      ),
-      pinRows.length === 0 && h('div', { style: { color: '#4a6a8a', fontSize: 11, padding: '4px 0' } }, 'No pin connections')
-    )
-  );
+  // domain — only for T180 pad instances
+  if (allowDomain) {
+    fields.push(h('div', { key: 'domain', style: labelStyle }, 'DOMAIN'),
+      h('div', { style: rowStyle },
+        h('select', { className: selectCls, style: { flex: 1 }, value: instance.domain || '', onChange: e => onChange({ domain: e.target.value === '' ? null : e.target.value }) },
+          h('option', { value: '' }, 'null'),
+          h('option', { value: 'digital' }, 'digital'),
+          h('option', { value: 'analog' }, 'analog'))));
+  }
+
+  // direction — only when allowed
+  if (allowDirection) {
+    const rawDir = typeof instance.direction === 'string' ? instance.direction.toLowerCase() : '';
+    const normDir = (rawDir === 'input' || rawDir === 'output') ? rawDir : '';
+    fields.push(h('div', { key: 'direction', style: labelStyle }, 'DIRECTION'),
+      h('div', { style: rowStyle },
+        h('select', { className: selectCls, style: { flex: 1 }, value: normDir, onChange: e => onChange({ direction: e.target.value === '' ? undefined : e.target.value }) },
+          h('option', { value: '' }, 'unset'),
+          h('option', { value: 'input' }, 'input'),
+          h('option', { value: 'output' }, 'output'))));
+  }
+
+  return h('div', null, ...fields);
 }
 
 // ---- RingConfigEditorComponent ----
+// Matches old PropertyEditor.tsx ring config view: CHIP SIZE, SIDE COUNTS, placement_order
 function RingConfigEditorComponent({ ringConfig, onChange }) {
+  // Resolve chip size keys
+  const widthKey = ringConfig && ringConfig.chip_width !== undefined ? 'chip_width' : 'width';
+  const heightKey = ringConfig && ringConfig.chip_height !== undefined ? 'chip_height' : 'height';
+  const hasChipSize = ringConfig && ringConfig[widthKey] !== undefined && ringConfig[heightKey] !== undefined;
+
+  // Resolve side count keys
+  const sideCountPatternA = ['top_count','right_count','bottom_count','left_count'];
+  const sideCountPatternB = ['num_pads_top','num_pads_right','num_pads_bottom','num_pads_left'];
+  let hasSideCounts = false;
+  let sideCountLabels = {};
+  if (ringConfig && sideCountPatternA.every(k => ringConfig[k] !== undefined)) {
+    hasSideCounts = true;
+    sideCountLabels = { top: 'top_count', right: 'right_count', bottom: 'bottom_count', left: 'left_count' };
+  } else if (ringConfig && sideCountPatternB.every(k => ringConfig[k] !== undefined)) {
+    hasSideCounts = true;
+    sideCountLabels = { top: 'num_pads_top', right: 'num_pads_right', bottom: 'num_pads_bottom', left: 'num_pads_left' };
+  }
+
+  const [chipSizeInput, setChipSizeInput] = useState('');
+  useEffect(() => {
+    if (hasChipSize) setChipSizeInput(`${ringConfig[widthKey]} * ${ringConfig[heightKey]}`);
+  }, [ringConfig && ringConfig[widthKey], ringConfig && ringConfig[heightKey]]);
+
+  const handleChipSizeChange = (val) => {
+    setChipSizeInput(val);
+    const parts = val.split('*');
+    if (parts.length === 2) {
+      const w = parseFloat(parts[0].trim());
+      const h = parseFloat(parts[1].trim());
+      if (!isNaN(w) && !isNaN(h)) {
+        const updated = { [widthKey]: w, [heightKey]: h };
+        onChange(updated);
+      }
+    }
+  };
+
+  const sectionLabel = { fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, color: '#6b7280', marginBottom: 4, marginTop: 10 };
+
   return h('div', null,
-    h('div', { className: 'prop-group' },
-      h('div', { className: 'prop-group-title' }, 'Ring Configuration'),
-      h('div', { className: 'prop-row' },
-        h('span', { className: 'prop-label' }, 'Process Node'),
-        h('select', {
-          className: 'prop-select', value: ringConfig.process_node || 'T180',
-          onChange: e => onChange({ process_node: e.target.value })
-        },
-          h('option', { value: 'T180' }, 'T180'),
-          h('option', { value: 'T28' }, 'T28'),
-        )
-      ),
-      h('div', { className: 'prop-row' },
-        h('span', { className: 'prop-label' }, 'Placement'),
-        h('select', {
-          className: 'prop-select', value: ringConfig.placement_order || 'counterclockwise',
-          onChange: e => onChange({ placement_order: e.target.value })
-        },
-          h('option', { value: 'counterclockwise' }, 'Counter-clockwise'),
-          h('option', { value: 'clockwise' }, 'Clockwise'),
-        )
-      ),
-      h('div', { className: 'prop-row' },
-        h('span', { className: 'prop-label' }, 'Chip Width'),
-        h('span', { style: { fontSize: 12, color: '#9ab' } }, ringConfig.chip_width ? `${Math.round(ringConfig.chip_width)} (auto)` : 'auto')
-      ),
-      h('div', { className: 'prop-row' },
-        h('span', { className: 'prop-label' }, 'Chip Height'),
-        h('span', { style: { fontSize: 12, color: '#9ab' } }, ringConfig.chip_height ? `${Math.round(ringConfig.chip_height)} (auto)` : 'auto')
-      ),
-      h('div', { className: 'prop-row' },
-        h('span', { className: 'prop-label' }, 'Pad Width'),
-        h('input', {
-          className: 'prop-input', type: 'number', value: ringConfig.pad_width || '',
-          onChange: e => onChange({ pad_width: e.target.value ? Number(e.target.value) : undefined })
-        })
-      ),
-      h('div', { className: 'prop-row' },
-        h('span', { className: 'prop-label' }, 'Corner Size'),
-        h('input', {
-          className: 'prop-input', type: 'number', value: ringConfig.corner_size || '',
-          onChange: e => onChange({ corner_size: e.target.value ? Number(e.target.value) : undefined })
-        })
-      ),
+    // CHIP SIZE
+    hasChipSize && h('div', { style: { marginBottom: 10 } },
+      h('div', { style: sectionLabel }, 'CHIP SIZE'),
+      h('input', { className: 'prop-input', style: { width: '100%' }, value: chipSizeInput,
+        placeholder: 'Width * Height', onChange: e => handleChipSizeChange(e.target.value) })
     ),
-    h('div', { className: 'prop-group' },
-      h('div', { className: 'prop-group-title' }, 'Side Counts (read-only)'),
-      ['top','right','bottom','left'].map(side =>
-        h('div', { key: side, className: 'prop-row' },
-          h('span', { className: 'prop-label', style: { textTransform: 'capitalize' } }, side),
-          h('span', { style: { fontSize: 12, color: '#7fa8d0' } },
-            String(ringConfig[`top_count`] !== undefined
-              ? (ringConfig[`${side}_count`] || 0)
-              : (ringConfig[`num_pads_${side}`] || 0)
-            )
+
+    // SIDE COUNTS (2x2 disabled grid matching old editor)
+    hasSideCounts && h('div', { style: { marginBottom: 10 } },
+      h('div', { style: sectionLabel }, 'SIDE COUNTS'),
+      h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4, padding: 6, border: '1px solid #e5e7eb', borderRadius: 6, background: '#f9fafb' } },
+        ['top','right','bottom','left'].map(side =>
+          h('div', { key: side, style: { display: 'flex', flexDirection: 'column', alignItems: 'center' } },
+            h('span', { style: { fontSize: 9, color: '#9ca3af', textTransform: 'uppercase' } }, side),
+            h('input', { type: 'number', disabled: true, value: ringConfig[sideCountLabels[side]] || 0,
+              style: { width: '100%', padding: '2px 4px', fontSize: 11, textAlign: 'center', background: '#f3f4f6', border: '1px solid #e5e7eb', borderRadius: 4, color: '#374151' } })
           )
         )
       )
+    ),
+
+    // Process Node
+    h('div', { style: { marginBottom: 10 } },
+      h('div', { style: sectionLabel }, 'PROCESS NODE'),
+      h('select', { className: 'prop-select', style: { width: '100%' }, value: ringConfig.process_node || 'T180',
+        onChange: e => onChange({ process_node: e.target.value }) },
+        h('option', { value: 'T180' }, 'T180'),
+        h('option', { value: 'T28' }, 'T28'))
+    ),
+
+    // Placement Order
+    h('div', { style: { marginBottom: 10 } },
+      h('div', { style: sectionLabel }, 'PLACEMENT ORDER'),
+      h('select', { className: 'prop-select', style: { width: '100%' }, value: ringConfig.placement_order || 'counterclockwise',
+        onChange: e => onChange({ placement_order: e.target.value }) },
+        h('option', { value: 'clockwise' }, 'clockwise'),
+        h('option', { value: 'counterclockwise' }, 'counterclockwise'))
+    ),
+
+    // Width / Height (editable, matching old editor)
+    h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginBottom: 10 } },
+      h('div', null,
+        h('div', { style: sectionLabel }, 'WIDTH'),
+        h('input', { className: 'prop-input', type: 'number', style: { width: '100%' },
+          value: ringConfig.width || '', placeholder: '-',
+          onChange: e => onChange({ width: e.target.value ? Number(e.target.value) : undefined }) })
+      ),
+      h('div', null,
+        h('div', { style: sectionLabel }, 'HEIGHT'),
+        h('input', { className: 'prop-input', type: 'number', style: { width: '100%' },
+          value: ringConfig.height || '', placeholder: '-',
+          onChange: e => onChange({ height: e.target.value ? Number(e.target.value) : undefined }) })
+      )
+    ),
+
+    // Starting Side
+    ringConfig.starting_side !== undefined && h('div', { style: { marginBottom: 10 } },
+      h('div', { style: sectionLabel }, 'STARTING SIDE'),
+      h('select', { className: 'prop-select', style: { width: '100%' }, value: ringConfig.starting_side || 'top',
+        onChange: e => onChange({ starting_side: e.target.value }) },
+        h('option', { value: 'top' }, 'top'),
+        h('option', { value: 'right' }, 'right'),
+        h('option', { value: 'bottom' }, 'bottom'),
+        h('option', { value: 'left' }, 'left'))
     )
   );
 }
@@ -908,7 +964,7 @@ function InspectorPanelComponent() {
   return h('div', { className: 'inspector-panel', ref: panelRef },
     h('div', { className: 'inspector-header' },
       h('span', null, selectedInstance ? 'Instance Properties' : 'Ring Config'),
-      selectedIds.length > 1 && h('span', { style: { fontSize: 10, color: '#7fa8d0' } },
+      selectedIds.length > 1 && h('span', { style: { fontSize: 10, color: '#6b7280' } },
         `${selectedIds.length} sel${compatiblePinBatchIds.length > 1 ? ` · ${compatiblePinBatchIds.length} pin-batch` : ''}`)
     ),
     h('div', { className: 'inspector-body' },
@@ -934,15 +990,16 @@ function RingCanvasComponent() {
   const [dragState, setDragState] = useState(null);
   const [boxSel, setBoxSel] = useState(null);
 
-  const SIDE_THICKNESS = 50;
-  const PAD_H = 40;
+  const DEFAULT_SCALE = 0.6;
   const processNode = graph.ring_config?.process_node || 'T180';
+  const isT28Node = String(processNode).toUpperCase().includes('28');
+  const dims = graph.visual_metadata?.dimensions || {};
+  const rawPadH = toPositiveNumber(dims.pad_height || graph.ring_config?.pad_height, isT28Node ? 110 : 120);
+  const SIDE_THICKNESS = rawPadH * DEFAULT_SCALE;
+  const rawCornerSize = toPositiveNumber(dims.corner_size || graph.ring_config?.corner_size, isT28Node ? 110 : 130);
+  const cornerSize = rawCornerSize * DEFAULT_SCALE;
 
-  // Build layout geometry
-  const cornerSize = toPositiveNumber(graph.ring_config?.corner_size, 130);
-  const defaultPadWidth = toPositiveNumber(graph.ring_config?.pad_width, 80);
-
-  const getInstWidth = (inst) => inferPerimeterWidth(inst, graph.ring_config);
+  const getInstWidth = (inst) => inferPerimeterWidth(inst, graph.ring_config) * DEFAULT_SCALE;
 
   const corners = { top_left: null, top_right: null, bottom_left: null, bottom_right: null };
   graph.instances.forEach(inst => {
@@ -952,10 +1009,10 @@ function RingCanvasComponent() {
     }
   });
 
-  const cTL = corners.top_left ? inferPerimeterWidth(corners.top_left, graph.ring_config) : cornerSize;
-  const cTR = corners.top_right ? inferPerimeterWidth(corners.top_right, graph.ring_config) : cornerSize;
-  const cBL = corners.bottom_left ? inferPerimeterWidth(corners.bottom_left, graph.ring_config) : cornerSize;
-  const cBR = corners.bottom_right ? inferPerimeterWidth(corners.bottom_right, graph.ring_config) : cornerSize;
+  const cTL = corners.top_left ? getInstWidth(corners.top_left) : cornerSize;
+  const cTR = corners.top_right ? getInstWidth(corners.top_right) : cornerSize;
+  const cBL = corners.bottom_left ? getInstWidth(corners.bottom_left) : cornerSize;
+  const cBR = corners.bottom_right ? getInstWidth(corners.bottom_right) : cornerSize;
 
   const topInstances = getSideVisualInstances(graph, 'top');
   const bottomInstances = getSideVisualInstances(graph, 'bottom');
@@ -971,20 +1028,19 @@ function RingCanvasComponent() {
   const chipH = Math.max(leftHeight + cTL + cBL, rightHeight + cTR + cBR, 200);
 
   const outerX = 0, outerY = 0;
+  const outerW = chipW, outerH = chipH;
   const innerX = SIDE_THICKNESS, innerY = SIDE_THICKNESS;
-  const innerW = chipW, innerH = chipH;
-  const outerW = chipW + 2 * SIDE_THICKNESS;
-  const outerH = chipH + 2 * SIDE_THICKNESS;
+  const innerW = chipW - 2 * SIDE_THICKNESS, innerH = chipH - 2 * SIDE_THICKNESS;
 
   // Build rects for each instance
   const instRects = [];
 
-  // Corners
+  // Corners — sized by actual corner dimensions (matching old editor)
   const cornerDefs = [
-    { loc: 'top_left', x: outerX, y: outerY, w: cTL + SIDE_THICKNESS, h: cTL + SIDE_THICKNESS },
-    { loc: 'top_right', x: outerX + outerW - cTR - SIDE_THICKNESS, y: outerY, w: cTR + SIDE_THICKNESS, h: cTR + SIDE_THICKNESS },
-    { loc: 'bottom_left', x: outerX, y: outerY + outerH - cBL - SIDE_THICKNESS, w: cBL + SIDE_THICKNESS, h: cBL + SIDE_THICKNESS },
-    { loc: 'bottom_right', x: outerX + outerW - cBR - SIDE_THICKNESS, y: outerY + outerH - cBR - SIDE_THICKNESS, w: cBR + SIDE_THICKNESS, h: cBR + SIDE_THICKNESS },
+    { loc: 'top_left', x: outerX, y: outerY, w: cTL, h: cTL },
+    { loc: 'top_right', x: outerX + outerW - cTR, y: outerY, w: cTR, h: cTR },
+    { loc: 'bottom_left', x: outerX, y: outerY + outerH - cBL, w: cBL, h: cBL },
+    { loc: 'bottom_right', x: outerX + outerW - cBR, y: outerY + outerH - cBR, w: cBR, h: cBR },
   ];
   cornerDefs.forEach(({ loc, x, y, w, h }) => {
     const inst = corners[loc];
@@ -992,8 +1048,8 @@ function RingCanvasComponent() {
     else instRects.push({ inst: null, x, y, w, h, isCorner: true, loc });
   });
 
-  // Top side
-  let topCursor = outerX + cTL + SIDE_THICKNESS;
+  // Top side — pads start right after top-left corner
+  let topCursor = outerX + cTL;
   topInstances.forEach(inst => {
     const iw = getInstWidth(inst);
     instRects.push({ inst, x: topCursor, y: outerY, w: iw, h: SIDE_THICKNESS, isTop: true });
@@ -1001,7 +1057,7 @@ function RingCanvasComponent() {
   });
 
   // Bottom side
-  let bottomCursor = outerX + cBL + SIDE_THICKNESS;
+  let bottomCursor = outerX + cBL;
   bottomInstances.forEach(inst => {
     const iw = getInstWidth(inst);
     instRects.push({ inst, x: bottomCursor, y: outerY + outerH - SIDE_THICKNESS, w: iw, h: SIDE_THICKNESS, isBottom: true });
@@ -1009,7 +1065,7 @@ function RingCanvasComponent() {
   });
 
   // Left side
-  let leftCursor = outerY + cTL + SIDE_THICKNESS;
+  let leftCursor = outerY + cTL;
   leftInstances.forEach(inst => {
     const iw = getInstWidth(inst);
     instRects.push({ inst, x: outerX, y: leftCursor, w: SIDE_THICKNESS, h: iw, isLeft: true });
@@ -1017,7 +1073,7 @@ function RingCanvasComponent() {
   });
 
   // Right side
-  let rightCursor = outerY + cTR + SIDE_THICKNESS;
+  let rightCursor = outerY + cTR;
   rightInstances.forEach(inst => {
     const iw = getInstWidth(inst);
     instRects.push({ inst, x: outerX + outerW - SIDE_THICKNESS, y: rightCursor, w: SIDE_THICKNESS, h: iw, isRight: true });
@@ -1142,7 +1198,7 @@ function RingCanvasComponent() {
 
         // Compute order
         if (newSide === 'top') {
-          const rel = svgPt.x - (outerX + cTL + SIDE_THICKNESS);
+          const rel = svgPt.x - (outerX + cTL);
           let acc = 0; newOrder = 0;
           for (let i = 0; i < topInstances.length; i++) {
             acc += getInstWidth(topInstances[i]);
@@ -1150,7 +1206,7 @@ function RingCanvasComponent() {
             newOrder = i + 1;
           }
         } else if (newSide === 'bottom') {
-          const rel = svgPt.x - (outerX + cBL + SIDE_THICKNESS);
+          const rel = svgPt.x - (outerX + cBL);
           let acc = 0; newOrder = 0;
           for (let i = 0; i < bottomInstances.length; i++) {
             acc += getInstWidth(bottomInstances[i]);
@@ -1158,7 +1214,7 @@ function RingCanvasComponent() {
             newOrder = i + 1;
           }
         } else if (newSide === 'left') {
-          const rel = svgPt.y - (outerY + cTL + SIDE_THICKNESS);
+          const rel = svgPt.y - (outerY + cTL);
           let acc = 0; newOrder = 0;
           for (let i = 0; i < leftInstances.length; i++) {
             acc += getInstWidth(leftInstances[i]);
@@ -1166,7 +1222,7 @@ function RingCanvasComponent() {
             newOrder = i + 1;
           }
         } else {
-          const rel = svgPt.y - (outerY + cTR + SIDE_THICKNESS);
+          const rel = svgPt.y - (outerY + cTR);
           let acc = 0; newOrder = 0;
           for (let i = 0; i < rightInstances.length; i++) {
             acc += getInstWidth(rightInstances[i]);
@@ -1565,19 +1621,19 @@ function LayoutEditorComponent() {
   }, []);
 
   if (loading) return h('div', {
-    style: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', background: '#1a1a2e', color: '#7fa8d0', fontSize: 18, gap: 12 }
+    style: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', background: '#fff', color: '#6b7280', fontSize: 18, gap: 12 }
   },
     h('div', null, 'Loading IO Ring Layout...'),
-    h('div', { style: { fontSize: 13, color: '#5a7a9a', marginTop: 8 } }, loadMsg)
+    h('div', { style: { fontSize: 13, color: '#9ca3af', marginTop: 8 } }, loadMsg)
   );
 
   if (error) return h('div', {
-    style: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', background: '#1a1a2e', color: '#f87171', fontSize: 16, gap: 12 }
+    style: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', background: '#fff', color: '#dc2626', fontSize: 16, gap: 12 }
   },
     h('div', null, 'Failed to load layout data'),
-    h('div', { style: { fontSize: 13, color: '#9ab' } }, error),
+    h('div', { style: { fontSize: 13, color: '#9ca3af' } }, error),
     h('button', {
-      style: { marginTop: 12, padding: '8px 20px', background: '#0f3460', border: '1px solid #1a4a8a', borderRadius: 4, color: '#e0e0e0', cursor: 'pointer' },
+      style: { marginTop: 12, padding: '8px 20px', background: '#f3f4f6', border: '1px solid #e5e7eb', borderRadius: 6, color: '#374151', cursor: 'pointer' },
       onClick: () => window.location.reload()
     }, 'Retry')
   );
