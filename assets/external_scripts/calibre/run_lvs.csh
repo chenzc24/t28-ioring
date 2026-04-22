@@ -11,8 +11,12 @@
 #   ./run_lvs.csh LLM_Layout_Design test_v2 layout T28
 
 # Initialize environment
-source /home/cshrc/.cshrc.cadence.sui
-source /home/cshrc/.cshrc.mentor25.sui
+source /home/cshrc/.cshrc.cadence.IC618SP201
+source /home/cshrc/.cshrc.mentor                #wei
+
+# source /home/cshrc/.cshrc.cadence.sui
+# source /home/cshrc/.cshrc.mentor25.sui  #sui
+
 
 # Determine script directory (robust for direct csh/run and remote csh() invocation)
 set SCRIPT_DIR = ""

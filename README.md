@@ -28,15 +28,15 @@ A Claude Code skill for automated IO Ring generation on TSMC 28nm (T28) process 
 
 ## Overview
 
-`io-ring-orchestrator-T28` is a self-contained Claude Code skill that automates TSMC 28nm IO Ring design. It bundles all required Python logic, SKILL templates, device data, and Calibre wrapper scripts — no separate package installation is needed.
+`io-ring-orchestrator-T28` is a Claude Code skill that automates TSMC 28nm IO Ring design. It depends on **virtuoso-bridge-lite** for all Virtuoso communication — install that first (see [Prerequisites](#prerequisites)).
 
 **What it does:**
 - Parses a natural-language IO Ring specification (signals, placement, dimensions)
 - Classifies signals and maps them to T28 devices (`PDB3AC`, `PDDW16SDGZ`, `PCORNER_G`, etc.)
 - Builds and validates an intent graph JSON
 - Generates Cadence SKILL code for schematic and layout
-- Executes SKILL in Virtuoso via the RAMIC bridge
-- Runs Calibre DRC, LVS, and optionally PEX
+- Uploads SKILL files to the EDA server and executes them in Virtuoso (via virtuoso-bridge-lite)
+- Runs Calibre DRC, LVS, and optionally PEX on the EDA server via SSH (via virtuoso-bridge-lite)
 
 ---
 
@@ -44,16 +44,50 @@ A Claude Code skill for automated IO Ring generation on TSMC 28nm (T28) process 
 
 | Requirement | Notes |
 |---|---|
-| Python 3.7+ | Standard library sufficient for validation; full flow needs packages in `requirements.txt` |
+| Python 3.9+ | Matches virtuoso-bridge-lite's requirement |
+| **virtuoso-bridge-lite ≥ 0.6** | **Required.** Provides `VirtuosoClient` (TCP to Virtuoso daemon) and `SSHClient` (file upload + remote shell). Install once per machine — see Step 0 below. |
 | Cadence Virtuoso | Required for SKILL execution and screenshot capture |
-| RAMIC bridge | Daemon that connects Claude Code to Virtuoso over TCP |
 | Calibre (Mentor/Siemens) | Required for DRC, LVS, PEX — `MGC_HOME` must point to your installation |
 | TSMC 28nm PDK | Layer map, LVS include files, and `cds.lib` are needed for verification |
-| C shell (`csh`) | Calibre wrapper scripts are written in csh |
+| C shell (`csh`) | Calibre wrapper scripts are written in csh — must be available on the EDA server |
 
 ---
 
 ## Installation
+
+### 0. Install virtuoso-bridge-lite (once per machine)
+
+This skill depends on **virtuoso-bridge-lite** for everything that touches Virtuoso
+or the EDA server. Install it first:
+
+```bash
+git clone <your virtuoso-bridge-lite repo>
+cd virtuoso-bridge-lite
+pip install -e .
+
+# Verify:
+virtuoso-bridge --version        # should print 0.6.x or later
+```
+
+Then configure the remote connection once:
+
+```bash
+virtuoso-bridge init             # creates ~/.virtuoso-bridge/.env
+# Edit ~/.virtuoso-bridge/.env with your server details:
+#   VB_REMOTE_HOST=<eda-server>
+#   VB_REMOTE_USER=<your user>
+#   (jump host, ports, etc. if needed)
+
+virtuoso-bridge start            # opens SSH tunnel + deploys the daemon
+virtuoso-bridge status           # confirm: tunnel ✓  daemon ✓
+```
+
+Finally, load the daemon SKILL file in Virtuoso CIW (once per Virtuoso session).
+`virtuoso-bridge start` prints the exact path — it looks like:
+
+```skill
+load("/tmp/virtuoso_bridge_<user>/virtuoso_bridge/virtuoso_setup.il")
+```
 
 ### 1. Clone or copy the skill into your Claude Code skills directory
 
@@ -86,41 +120,16 @@ cd ~/.claude/skills/io-ring-orchestrator-T28
 pip install -r requirements.txt
 ```
 
-### 3. Configure environment (see [Configuration](#configuration))
+### 3. Configure T28's `.env` (see [Configuration](#configuration))
 
-### 4. Start the RAMIC Bridge in Virtuoso
+Only T28-specific paths (`CDS_LIB_PATH_28`, `AMS_OUTPUT_ROOT`) go here. The bridge
+connection lives in `~/.virtuoso-bridge/.env`, already configured in Step 0.
 
-#### 4.1 SSH Port Forwarding
-*(Required on code-development machines without direct access to the Virtuoso host)*
-
-```bash
-ssh -L RB_PORT:127.0.0.1:RB_PORT user@virtuoso_host
-```
-
-> `RB_PORT` must match the value set in `.env` (e.g. `65438`) and the port the RAMIC bridge daemon is listening on.
-
-#### 4.2 Set Up the RAMIC Bridge
-
-**Step 1 — Set the daemon path** *(once per terminal session, before launching Virtuoso's CIW):*
+### 4. Verify the installation
 
 ```bash
-setenv RB_DAEMON_PATH /path/to/io-ring-orchestrator-T28/assets/external_scripts/ramic_bridge/ramic_bridge_daemon_27.py
-```
-
-**Step 2 — Load the bridge SKILL file** *(inside Virtuoso's CIW):*
-
-```skill
-load("/path/to/io-ring-orchestrator-T28/assets/external_scripts/ramic_bridge/ramic_bridge.il")
-```
-
-> A `t` return value in the CIW confirms successful loading.
-
-The bridge listens on `RB_HOST:RB_PORT` (default `127.0.0.1:65438`).
-
-### 5. Verify the installation
-
-```bash
-python3 scripts/check_virtuoso_connection.py
+virtuoso-bridge status                          # tunnel + daemon
+python3 scripts/check_virtuoso_connection.py    # end-to-end SKILL round-trip
 ```
 
 ---
@@ -129,24 +138,15 @@ python3 scripts/check_virtuoso_connection.py
 
 ### `.env` — Runtime Variables
 
-Create or edit `.env` in the skill root (`io-ring-orchestrator-T28/.env`). This file is loaded automatically by all CLI scripts.
+Create or edit `.env` in the skill root (`io-ring-orchestrator-T28/.env`). This file
+holds **only T28-specific** config. Virtuoso connection details live separately in
+`~/.virtuoso-bridge/.env` (managed by `virtuoso-bridge init`).
 
 ```env
 # === Required ===
 
 # Path to your T28 cds.lib (used by Calibre strmout/si wrappers)
 CDS_LIB_PATH_28=/absolute/path/to/your/T28/cds.lib
-
-# === Virtuoso / RAMIC bridge ===
-
-# Set to true to route SKILL calls through the RAMIC bridge
-USE_RAMIC_BRIDGE=true
-
-# RAMIC bridge host (usually localhost)
-RB_HOST=127.0.0.1
-
-# RAMIC bridge port (must match the port the bridge is listening on)
-RB_PORT=65438
 
 # === Optional output path controls ===
 
@@ -164,11 +164,34 @@ RB_PORT=65438
 | Variable | Required | Default | Description |
 |---|---|---|---|
 | `CDS_LIB_PATH_28` | Yes | — | Absolute path to `cds.lib` for T28; read by Calibre csh wrappers |
-| `USE_RAMIC_BRIDGE` | Yes | — | Enable RAMIC bridge mode (`true`/`1`/`yes`) |
-| `RB_HOST` | No | `127.0.0.1` | RAMIC bridge host |
-| `RB_PORT` | No | `65438` | RAMIC bridge port |
 | `AMS_OUTPUT_ROOT` | No | `./output` | Explicit output root for all generated files |
 | `AMS_IO_AGENT_PATH` | No | — | Workspace root; used to derive output path when `AMS_OUTPUT_ROOT` is not set |
+
+For Virtuoso connection (host, user, ports, jump host), the bridge config is
+resolved by `bridge_utils.py::_load_vb_env()` in this priority order:
+
+1. **`$VB_ENV_FILE`** — absolute path to a `.env` file (explicit override)
+2. **Project-level** — nearest `.env` containing `VB_REMOTE_HOST` or
+   `VB_LOCAL_PORT`, searching cwd and its parents
+3. **User-level** — `~/.virtuoso-bridge/.env` (created by `virtuoso-bridge init`)
+
+Examples:
+
+```powershell
+# Project-level (recommended for portable setups):
+# Put a .env with VB_REMOTE_HOST etc. at your workspace root, e.g.
+#   C:\Users\you\Desktop\bridge-Agent\.env
+# Any T28 script run from inside that tree picks it up automatically.
+
+# Explicit path (overrides all others):
+$env:VB_ENV_FILE = "D:\configs\my-vb.env"
+
+# User-level (default — virtuoso-bridge init creates this):
+#   ~/.virtuoso-bridge/.env
+```
+
+To see which `.env` the scripts will use on your current setup, run:
+`python scripts/check_virtuoso_connection.py` — it prints the resolved source.
 
 **Output path resolution order:**
 1. `AMS_OUTPUT_ROOT` (if set)
@@ -266,21 +289,18 @@ io-ring-orchestrator-T28/
 │   │   └── IO_device_info_T28.json   # Device specifications and embedded pin_rules
 │   │
 │   └── external_scripts/
-│       ├── calibre/                  # Calibre DRC/LVS/PEX csh wrappers
-│       │   ├── env_common.csh        # Shared environment (edit PDK paths here)
-│       │   ├── run_drc.csh
-│       │   ├── run_lvs.csh
-│       │   ├── run_pex.csh
-│       │   └── T28/                  # T28-specific rule files
-│       │       ├── _drc_rule_T28_cell_
-│       │       ├── _calibre_T28.lvs_
-│       │       ├── _calibre_T28.rcx_
-│       │       └── si_T28.env
-│       └── ramic_bridge/             # RAMIC bridge for Virtuoso communication
-│           ├── ramic_bridge.il       # SKILL side of the bridge (load in Virtuoso CIW)
-│           ├── ramic_bridge.py       # Python side of the bridge
-│           ├── ramic_bridge_daemon_27.py  # Python 2.7-compatible daemon
-│           └── README.md             # Bridge setup and protocol details
+│       └── calibre/                  # Calibre DRC/LVS/PEX csh wrappers
+│           ├── env_common.csh        # Shared environment (edit PDK paths here)
+│           ├── run_drc.csh
+│           ├── run_lvs.csh
+│           ├── run_pex.csh
+│           └── T28/                  # T28-specific rule files
+│               ├── _drc_rule_T28_cell_
+│               ├── _calibre_T28.lvs_
+│               ├── _calibre_T28.rcx_
+│               └── si_T28.env
+# Note: the bundled ramic_bridge/ is gone. Virtuoso communication and SSH-based
+# file transfer are now provided by virtuoso-bridge-lite (installed separately).
 │
 ├── references/                       # Technology and flow references
 │   ├── T28_Technology.md             # T28 device and process reference
@@ -590,10 +610,12 @@ All outputs are written to `${AMS_OUTPUT_ROOT}/generated/<YYYYMMDD_HHMMSS>/`:
 ## Troubleshooting
 
 **Virtuoso connection fails:**
-- Confirm Virtuoso is running: `ps aux | grep virtuoso`
-- Confirm RAMIC bridge is loaded in Virtuoso CIW
-- Verify `USE_RAMIC_BRIDGE`, `RB_HOST`, and `RB_PORT` in `.env`
-- Test directly: `python3 scripts/check_virtuoso_connection.py`
+- `virtuoso-bridge status` — check tunnel + daemon state
+- `virtuoso-bridge restart` — force-restart the tunnel and redeploy the daemon
+- Confirm the daemon SKILL file is loaded in Virtuoso CIW (path is printed by `virtuoso-bridge start`)
+- Check `~/.virtuoso-bridge/.env` for correct `VB_REMOTE_HOST` / `VB_REMOTE_USER`
+- Test end-to-end: `python3 scripts/check_virtuoso_connection.py`
+- For deeper troubleshooting, see `virtuoso-bridge-lite/README.md`
 
 **DRC/LVS script fails with path errors:**
 - Verify `CDS_LIB_PATH_28` is set in `.env` or your shell environment
@@ -616,6 +638,6 @@ All outputs are written to `${AMS_OUTPUT_ROOT}/generated/<YYYYMMDD_HHMMSS>/`:
 | Document | Location | Description |
 |---|---|---|
 | Skill contract | `SKILL.md` | Detailed workflow contract and step definitions |
-| RAMIC bridge guide | `assets/external_scripts/ramic_bridge/README.md` | Bridge setup, protocol, and troubleshooting |
+| virtuoso-bridge-lite | `virtuoso-bridge-lite/README.md` | Full bridge setup: SSH tunnels, daemon, multi-profile, CLI reference |
 | T28 technology reference | `references/T28_Technology.md` | Device specifications and process details |
 | Skills interface spec | `../../SKILL_INTERFACES.md` | Input/output interfaces for all skills |

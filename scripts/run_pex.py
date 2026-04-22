@@ -77,51 +77,13 @@ def parse_pex_capacitance(netlist_file: Path) -> str:
         return f"Failed to extract PEX netlist content: {e}"
 
 
-def get_current_design():
-    """
-    Get (lib, cell, view) for current edit cellView using either ramic_bridge or skillbridge.
-    Returns (None, None, None) if not available.
-    """
-    from assets.utils.bridge_utils import use_ramic_bridge, rb_exec
-
-    if use_ramic_bridge():
-        try:
-            skill_code = 'sprintf(nil "%s" ddGetObjReadPath(dbGetCellViewDdId(geGetEditCellView())))'
-            ret = rb_exec(skill_code, timeout=30)
-            if not ret:
-                return None, None, None
-            parts = ret.split('/')
-            if len(parts) < 4:
-                return None, None, None
-            return parts[-4], parts[-3], parts[-2]
-        except Exception:
-            return None, None, None
-    else:
-        try:
-            from skillbridge import Workspace  # type: ignore
-            ws = Workspace.open()
-            try:
-                cv = ws['geGetEditCellView']()
-                if not cv:
-                    return None, None, None
-                ddId = ws['dbGetCellViewDdId'](cv)
-                full_path = ws['ddGetObjReadPath'](ddId)
-                parts = str(full_path).split('/')
-                if len(parts) < 4:
-                    return None, None, None
-                return parts[-4], parts[-3], parts[-2]
-            finally:
-                ws.close()
-        except Exception:
-            return None, None, None
-
-
 def main():
     from assets.core.layout.device_classifier import _normalize_process_node
     from assets.utils.bridge_utils import (
         open_cell_view_by_type,
         ui_redraw,
         execute_csh_script,
+        get_current_design,
     )
 
     # Set output root

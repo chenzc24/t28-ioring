@@ -416,13 +416,11 @@ io-ring-orchestrator-T28/
     │   └── IO_device_info_T28_parser.py
     │
     └── external_scripts/             # External executables
-        ├── calibre/
-        │   ├── T28/
-        │   ├── run_drc.csh
-        │   ├── run_lvs.csh
-        │   └── run_pex.csh
-        └── ramic_bridge/
-            ├── ramic_bridge.py
-            ├── ramic_bridge.il
-            └── ramic_bridge_daemon_27.py
+        └── calibre/
+            ├── T28/
+            ├── run_drc.csh
+            ├── run_lvs.csh
+            └── run_pex.csh
+# Virtuoso TCP bridge + SSH file transfer are provided by virtuoso-bridge-lite
+# (installed separately; see README.md Prerequisites).
 ```

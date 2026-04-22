@@ -149,7 +149,10 @@ def main():
         result = execute_csh_script(str(script_path), lib, cell, view, node, timeout=300)
         print(f"   Script execution completed")
 
-        if not result or str(result).startswith("Remote csh execution failed"):
+        _r = str(result) if result else ""
+        _failed = (not result) or any(_r.startswith(p) for p in (
+            "Remote csh execution failed", "Remote execution failed", "Remote upload failed"))
+        if _failed:
             print(f"❌ Error: DRC script execution failed")
             print(f"   Command: {script_path}")
             print(f"   Arguments: {lib} {cell} {view} {node}")

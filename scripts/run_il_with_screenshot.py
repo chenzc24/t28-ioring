@@ -49,12 +49,18 @@ def _resolve_output_root() -> Path:
 
 
 def run_il_file(il_file_path: str, lib: str, cell: str, view: str = "layout", save: bool = False) -> str:
-    """Run IL file in Virtuoso (from original runtime_t28.py)."""
+    """Run IL file in Virtuoso.
+
+    Uses load_skill_file() which uploads the .il to the remote EDA server via SSH
+    before calling load() in Virtuoso.  This is required when running from Windows
+    because Virtuoso (on Linux) cannot access local Windows paths directly.
+    """
     from assets.utils.bridge_utils import (
         open_cell_view_by_type,
         ge_open_window,
         ui_redraw,
         rb_exec,
+        load_skill_file,
         save_current_cellview,
     )
 
@@ -81,18 +87,15 @@ def run_il_file(il_file_path: str, lib: str, cell: str, view: str = "layout", sa
     if skill_path.suffix.lower() not in [".il", ".skill"]:
         return f"❌ Error: File {skill_path} is not a valid il/skill file"
 
-    escaped_path = str(skill_path.resolve()).replace("\\", "\\\\").replace('"', '\\"')
-    load_result = rb_exec(f'load("{escaped_path}")', timeout=60)
-    if load_result and load_result.strip().lower() in {"t", "t\n", ""}:
+    # Upload to remote server then load — works for both local and remote Virtuoso.
+    ok = load_skill_file(str(skill_path.resolve()), timeout=300)
+    if ok:
         if save:
             if save_current_cellview(timeout=30):
                 return f"✅ il file {skill_path.name} executed and saved successfully"
             return f"✅ il file {skill_path.name} executed successfully but save failed"
         return f"✅ il file {skill_path.name} executed successfully"
 
-    safe_error = str(load_result).replace("\n", " ").replace("\r", " ").strip() if load_result else ""
-    if safe_error and safe_error.lower() not in {"nil", "none"}:
-        return f"❌ il file {skill_path.name} execution failed\n[Error Details]: {safe_error}"
     return f"❌ il file {skill_path.name} execution failed"
 
 

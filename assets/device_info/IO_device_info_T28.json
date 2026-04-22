@@ -873,26 +873,26 @@
       "device_view": "symbol"
     },
     "PVDD1A_V_G": {
-      "center_x": -0.219,
+      "center_x": -0.25,
       "center_y": 0.438,
       "pins": [
-        {"name": "TAVSS", "x": -0.25, "y": 0.875, "original_side": "top"},
-        {"name": "VSS", "x": 0.125, "y": 0.875, "original_side": "top"},
-        {"name": "AVDD", "x": -0.188, "y": 0.0, "original_side": "bottom"},
-        {"name": "TAVDD", "x": -0.625, "y": 0.875, "original_side": "top"}
+        {"name": "TAVDD", "x": -0.625, "y": 0.875, "original_side": "top"},
+        {"name": "TAVSS", "x": -0.312, "y": 0.875, "original_side": "top"},
+        {"name": "VSS", "x": 0.0, "y": 0.875, "original_side": "top"},
+        {"name": "AVDD", "x": -0.25, "y": 0.0, "original_side": "bottom"}
       ],
       "device_lib": "tphn28hpcpgv18",
       "device_cell": "PVDD1A_V_G",
       "device_view": "symbol"
     },
     "PVDD1A_H_G": {
-      "center_x": -0.219,
+      "center_x": -0.25,
       "center_y": 0.438,
       "pins": [
-        {"name": "TAVSS", "x": -0.25, "y": 0.875, "original_side": "top"},
-        {"name": "VSS", "x": 0.125, "y": 0.875, "original_side": "top"},
-        {"name": "AVDD", "x": -0.188, "y": 0.0, "original_side": "bottom"},
-        {"name": "TAVDD", "x": -0.625, "y": 0.875, "original_side": "top"}
+        {"name": "TAVDD", "x": -0.625, "y": 0.875, "original_side": "top"},
+        {"name": "TAVSS", "x": -0.312, "y": 0.875, "original_side": "top"},
+        {"name": "VSS", "x": 0.0, "y": 0.875, "original_side": "top"},
+        {"name": "AVDD", "x": -0.25, "y": 0.0, "original_side": "bottom"}
       ],
       "device_lib": "tphn28hpcpgv18",
       "device_cell": "PVDD1A_H_G",
@@ -903,9 +903,9 @@
       "center_y": 0.438,
       "pins": [
         {"name": "AVSS", "x": -0.188, "y": 0.0, "original_side": "bottom"},
-        {"name": "TAVSS", "x": -0.25, "y": 0.875, "original_side": "top"},
         {"name": "VSS", "x": 0.125, "y": 0.875, "original_side": "top"},
-        {"name": "TAVDD", "x": -0.625, "y": 0.875, "original_side": "top"}
+        {"name": "TAVDD", "x": -0.625, "y": 0.875, "original_side": "top"},
+        {"name": "TAVSS", "x": -0.25, "y": 0.875, "original_side": "top"}
       ],
       "device_lib": "tphn28hpcpgv18",
       "device_cell": "PVSS1A_V_G",
@@ -916,9 +916,9 @@
       "center_y": 0.438,
       "pins": [
         {"name": "AVSS", "x": -0.188, "y": 0.0, "original_side": "bottom"},
-        {"name": "TAVSS", "x": -0.25, "y": 0.875, "original_side": "top"},
         {"name": "VSS", "x": 0.125, "y": 0.875, "original_side": "top"},
-        {"name": "TAVDD", "x": -0.625, "y": 0.875, "original_side": "top"}
+        {"name": "TAVDD", "x": -0.625, "y": 0.875, "original_side": "top"},
+        {"name": "TAVSS", "x": -0.25, "y": 0.875, "original_side": "top"}
       ],
       "device_lib": "tphn28hpcpgv18",
       "device_cell": "PVSS1A_H_G",
@@ -928,9 +928,9 @@
       "center_x": -0.219,
       "center_y": 0.438,
       "pins": [
+        {"name": "TAVDD", "x": -0.625, "y": 0.875, "original_side": "top"},
         {"name": "VSS", "x": -0.188, "y": 0.0, "original_side": "bottom"},
-        {"name": "TAVSS", "x": -0.25, "y": 0.875, "original_side": "top"},
-        {"name": "TAVDD", "x": -0.625, "y": 0.875, "original_side": "top"}
+        {"name": "TAVSS", "x": -0.25, "y": 0.875, "original_side": "top"}
       ],
       "device_lib": "tphn28hpcpgv18",
       "device_cell": "PVSS2A_V_G",
@@ -940,9 +940,9 @@
       "center_x": -0.219,
       "center_y": 0.438,
       "pins": [
+        {"name": "TAVDD", "x": -0.625, "y": 0.875, "original_side": "top"},
         {"name": "VSS", "x": -0.188, "y": 0.0, "original_side": "bottom"},
-        {"name": "TAVSS", "x": -0.25, "y": 0.875, "original_side": "top"},
-        {"name": "TAVDD", "x": -0.625, "y": 0.875, "original_side": "top"}
+        {"name": "TAVSS", "x": -0.25, "y": 0.875, "original_side": "top"}
       ],
       "device_lib": "tphn28hpcpgv18",
       "device_cell": "PVSS2A_H_G",
