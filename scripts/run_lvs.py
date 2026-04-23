@@ -188,7 +188,7 @@ def main():
 
         ui_redraw(timeout=5)
 
-        result = execute_csh_script(str(script_path), lib, cell, view, node, timeout=300)
+        result = execute_csh_script(str(script_path), lib, cell, view, node, timeout=600)
         print(f"   Script execution completed")
 
         _r = str(result) if result else ""
@@ -203,7 +203,10 @@ def main():
             print(f"     1. Calibre is not installed or not in PATH")
             print(f"     2. Calibre LVS rules file is missing")
             print(f"     3. Network/daemon issues with bridge")
-            return "❌ LVS check failed"
+            print(f"     4. Cadence/Mentor environment not sourced correctly")
+            print(f"   Full output:")
+            print(str(result))
+            return f"❌ LVS check failed: {result}"
 
         print(f"   Script result: Success")
 

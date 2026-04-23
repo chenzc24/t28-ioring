@@ -10,13 +10,17 @@ else
     set SCRIPT_DIR = `cd "$SCRIPT_DIR"; pwd`
 endif
 
-# Project root: go up from calibre directory
-# Script is at: src/scripts/calibre/env_common.csh
-# So we need to go up 3 levels: calibre -> scripts -> src -> project root
-set PROJECT_ROOT = "$SCRIPT_DIR"
-set PROJECT_ROOT = `dirname "$PROJECT_ROOT"`  # calibre -> scripts
-set PROJECT_ROOT = `dirname "$PROJECT_ROOT"`  # scripts -> src
-set PROJECT_ROOT = `dirname "$PROJECT_ROOT"`  # src -> project root
+# Project root: when uploaded to /tmp/ by virtuoso-bridge, keep SCRIPT_DIR as root
+# since AMS_OUTPUT_ROOT and CDS_LIB_PATH are passed via environment. Otherwise go
+# up 3 levels (calibre -> scripts -> src -> project root).
+if ( "$SCRIPT_DIR" =~ /tmp/* ) then
+    set PROJECT_ROOT = "$SCRIPT_DIR"
+else
+    set PROJECT_ROOT = "$SCRIPT_DIR"
+    set PROJECT_ROOT = `dirname "$PROJECT_ROOT"`
+    set PROJECT_ROOT = `dirname "$PROJECT_ROOT"`
+    set PROJECT_ROOT = `dirname "$PROJECT_ROOT"`
+endif
 
 # === Calibre / PDK / run dirs - update these paths to your site defaults ===
 # Layer map for strmout / XStream

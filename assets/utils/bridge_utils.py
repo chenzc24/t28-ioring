@@ -344,16 +344,19 @@ def load_script_and_take_screenshot(screenshot_script_path: str, save_path: str,
 _CALIBRE_REMOTE_BASE = "/tmp/vb_t28_calibre"
 
 
-def _upload_calibre_tree(ssh, calibre_dir: Path, remote_base: str, timeout: int = 60) -> Optional[str]:
+def _upload_calibre_tree(ssh, calibre_dir: Path, remote_base: str, timeout: int = 120) -> Optional[str]:
     """Upload every file under calibre_dir to remote_base, preserving structure.
+
+    Uses ssh.upload_file() which streams via tar pipe (no command-line length
+    limit).  Strips \\r from script files during packing.
 
     Returns None on success, or an error string on failure.
     """
     import tempfile
-
-    # Collect all files, strip CRLF from shell/SKILL scripts, pack into ONE tar
-    # to avoid multiple SSH connections (each new connection takes 5-30s on Windows).
+    import time as _time
     import tarfile, io
+
+    # Collect all files, strip \r from scripts, pack into ONE tar.gz
     buf = io.BytesIO()
     with tarfile.open(fileobj=buf, mode="w:gz") as tar:
         for f in calibre_dir.rglob("*"):
@@ -361,8 +364,8 @@ def _upload_calibre_tree(ssh, calibre_dir: Path, remote_base: str, timeout: int 
                 continue
             rel = f.relative_to(calibre_dir).as_posix()
             content = f.read_bytes()
-            if f.suffix in (".csh", ".sh", ".il", ".skill") and b"\r\n" in content:
-                content = content.replace(b"\r\n", b"\n")
+            if f.suffix in (".csh", ".sh", ".il", ".skill"):
+                content = content.replace(b"\r", b"")
             info = tarfile.TarInfo(name=rel)
             info.size = len(content)
             tar.addfile(info, io.BytesIO(content))
@@ -373,25 +376,41 @@ def _upload_calibre_tree(ssh, calibre_dir: Path, remote_base: str, timeout: int 
         tmp_path = Path(tmp.name)
 
     try:
-        remote_cmd = f"mkdir -p {shlex.quote(remote_base)} && tar xzf - -C {shlex.quote(remote_base)}"
-        # Upload via a single ssh.upload_file to the remote untar command
-        up = ssh.upload_file(tmp_path, f"{remote_base}/_upload.tar.gz", timeout=timeout)
-        if getattr(up, "returncode", 1) != 0:
+        # upload_file() streams via `tar cf - <file> | ssh "tar xf - -C <dir>"`
+        # so the remote file ends up at <remote_base>/<tmp_filename>.
+        remote_tar_name = tmp_path.name
+        up = ssh.upload_file(tmp_path, f"{remote_base}/{remote_tar_name}", timeout=timeout)
+        rc = getattr(up, "returncode", 1)
+        if rc != 0:
             err = (getattr(up, "stderr", "") or "").strip()
-            tmp_path.unlink(missing_ok=True)
             return f"tarball upload failed: {err}"
-        # Unpack on remote
-        unpack = ssh.run_command(
-            f"mkdir -p {shlex.quote(remote_base)} && tar xzf {shlex.quote(remote_base+'/_upload.tar.gz')} -C {shlex.quote(remote_base)}",
-            timeout=30,
-        )
-        if getattr(unpack, "returncode", 1) != 0:
-            tmp_path.unlink(missing_ok=True)
-            return f"remote unpack failed: {(getattr(unpack,'stderr','') or '').strip()}"
+
+        # Unpack on remote (retry on transient failures)
+        remote_tar = f"{remote_base}/{remote_tar_name}"
+        max_retries = 3
+        last_err = ""
+        for attempt in range(1, max_retries + 1):
+            try:
+                unpack = ssh.run_command(
+                    f"mkdir -p {shlex.quote(remote_base)} && "
+                    f"tar xzf {shlex.quote(remote_tar)} -C {shlex.quote(remote_base)}",
+                    timeout=60,
+                )
+                if getattr(unpack, "returncode", 1) == 0:
+                    # Clean up remote tarball
+                    ssh.run_command(f"rm -f {shlex.quote(remote_tar)}", timeout=10)
+                    return None
+                last_err = (getattr(unpack, "stderr", "") or "").strip()
+            except Exception as e:
+                last_err = str(e)
+            if attempt < max_retries:
+                wait = min(5 * (2 ** (attempt - 1)), 30)
+                print(f"[upload_calibre_tree] unpack attempt {attempt}/{max_retries} failed: {last_err[:200]}")
+                _time.sleep(wait)
+
+        return f"remote unpack failed after {max_retries} attempts: {last_err}"
     finally:
         tmp_path.unlink(missing_ok=True)
-
-    return None
 
 
 def _run_local_csh(script_path: str, args, timeout: int) -> str:
@@ -518,97 +537,13 @@ def _read_env_raw(key: str) -> str:
     return ""
 
 
-def _skill_strip_crlf_remote(filenames: list[str], base: str = _CALIBRE_REMOTE_BASE) -> None:
-    """Use SKILL system() to strip CRLF from already-uploaded scripts on the remote.
-    This is the reliable fallback when the tar upload path couldn't strip CRLF.
-    """
-    for fname in filenames:
-        path = f"{base}/{fname}"
-        # tr -d '\r' is unambiguous across all sed/tr versions; sed \r can fail
-        # depending on locale.  Rewrite to tmp then move back atomically.
-        rb_exec(
-            f'system("tr -d \'\\\\r\' < {path} > {path}.lf && mv {path}.lf {path} 2>/dev/null")',
-            timeout=10,
-        )
 
-
-def _run_calibre_async(
-    remote_script: str,
-    env_prefix: str,
-    args_str: str,
-    remote_ams_root: str,
-    log_file: str,
-    done_file: str,
-    poll_secs: float = 5.0,
-    timeout: int = 600,
-) -> tuple[int, str]:
-    """Run a Calibre csh script via SKILL system() in the background.
-
-    Because system() is synchronous and blocks the Virtuoso SKILL interpreter
-    (causing the RAMIC IPC daemon to drop), we run the csh with '&' so the
-    shell returns immediately, then poll via short system("test -f DONE") calls.
-
-    The csh wrapper writes the exit code to done_file when it finishes.
-    Returns (rc, message).
-    """
-    import time
-    import re as _re
-
-    # Sanitize paths for shell embedding — no quotes or special chars
-    for p in (remote_script, log_file, done_file):
-        if _re.search(r"[\s;|&$]", p):
-            return 1, f"unsafe path for async execution: {p!r}"
-
-    # Remove stale done_file if it exists
-    rb_exec(f'system("rm -f {done_file}")', timeout=10)
-
-    # Launch async: subshell runs csh + captures exit code, then writes done_file
-    async_cmd = (
-        f"sh -c '{env_prefix} csh {remote_script} {args_str} "
-        f"> {log_file} 2>&1; echo $? > {done_file}' &"
-    )
-    launch_rc = rb_exec(f'system("{async_cmd}")', timeout=15)
-    print(f"[calibre_async] launched (system rc={launch_rc!r}), polling every {poll_secs}s ...")
-
-    # Poll until done_file appears
-    elapsed = 0.0
-    while elapsed < timeout:
-        time.sleep(poll_secs)
-        elapsed += poll_secs
-        done_check = rb_exec(f'system("test -f {done_file}")', timeout=10)
-        if done_check == "0":
-            break
-        if int(elapsed) % 30 == 0:
-            print(f"[calibre_async] still running ... ({int(elapsed)}s)")
-    else:
-        return 1, f"timeout after {timeout}s"
-
-    # Read the exit code from done_file (content is "0\n" or "1\n" etc.)
-    pass_check = rb_exec(f'system("grep -qx 0 {done_file}")', timeout=10)
-    rc = 0 if pass_check == "0" else 1
-
-    # Download output subtrees from remote_ams_root to local AMS_OUTPUT_ROOT
-    local_ams = os.environ.get("AMS_OUTPUT_ROOT", "").strip()
-    if local_ams:
-        try:
-            ssh = _get_ssh()
-            err = _download_calibre_output(ssh, remote_ams_root, local_ams, timeout=180)
-            if err:
-                print(f"[calibre_async] warn: {err}")
-        except Exception as e:
-            print(f"[calibre_async] warn: download failed: {e}")
-
-    return rc, log_file
-
-
-def execute_csh_script(script_path: str, *args, timeout: int = 300) -> str:
+def execute_csh_script(script_path: str, *args, timeout: int = 600) -> str:
     """Upload the calibre csh script tree and run it on the EDA server.
 
-    Execution path (tried in order):
-      1. SKILL async (preferred): launches csh in background via SKILL system() &,
-         polls for completion — keeps the Virtuoso IPC alive throughout.
-      2. SSH direct (fallback): runs synchronously via ssh.run_command.
-      3. Local csh (last resort): runs on the Windows machine (rarely works).
+    Execution path:
+      1. SSH direct: runs synchronously via ssh.run_command with env vars.
+      2. Local csh (fallback): runs on the local machine (rarely works).
 
     Two filesystem modes for the output directory:
       - shared: Calibre writes to AMS_OUTPUT_ROOT directly (NFS mount).
@@ -628,16 +563,13 @@ def execute_csh_script(script_path: str, *args, timeout: int = 300) -> str:
         print(f"[execute_csh_script] SSH unavailable, falling back to local: {e}")
         return _run_local_csh(script_path, args, timeout)
 
-    # ── Upload all calibre scripts as a single tarball (Fix D) ────────────────
-    upload_err = _upload_calibre_tree(ssh, calibre_dir, _CALIBRE_REMOTE_BASE, timeout=60)
+    # ── Upload all calibre scripts as a single tarball ─────────────────────────
+    upload_err = _upload_calibre_tree(ssh, calibre_dir, _CALIBRE_REMOTE_BASE, timeout=120)
     if upload_err:
         local = _run_local_csh(script_path, args, timeout)
         if not str(local).startswith("Local csh execution failed"):
             return local
         return f"Remote upload failed: {upload_err}; fallback local: {local}"
-
-    # Strip any residual CRLF via SKILL (belt-and-suspenders) using stable TCP
-    _skill_strip_crlf_remote([script.name, "env_common.csh"])
 
     remote_script = f"{_CALIBRE_REMOTE_BASE}/{script.relative_to(calibre_dir).as_posix()}"
     args_str = " ".join(shlex.quote(str(a)) for a in args)
@@ -645,9 +577,10 @@ def execute_csh_script(script_path: str, *args, timeout: int = 300) -> str:
 
     mode = _detect_fs_mode(ssh, local_ams_root)
     cell_tag = _re.sub(r"[^A-Za-z0-9_.-]", "_", str(args[1]) if len(args) >= 2 else "run") or "run"
+
     if mode == "remote":
         remote_ams_root = f"{_CALIBRE_REMOTE_BASE}/output_{cell_tag}"
-        rb_exec(f'system("mkdir -p {remote_ams_root}/drc {remote_ams_root}/lvs")', timeout=10)
+        ssh.run_command(f"mkdir -p {shlex.quote(remote_ams_root)}/drc {shlex.quote(remote_ams_root)}/lvs", timeout=10)
         print(f"[execute_csh_script] fs_mode=remote  remote AMS_OUTPUT_ROOT={remote_ams_root}")
     else:
         remote_ams_root = local_ams_root
@@ -657,41 +590,24 @@ def execute_csh_script(script_path: str, *args, timeout: int = 300) -> str:
     # instead of os.environ — Git bash on Windows converts /home/... paths to
     # C:\Program Files\Git\home\... which breaks on the remote Linux server.
     cds_lib = _read_env_raw("CDS_LIB_PATH_28")
-    env_prefix = ""
+
+    # Build env args for `env` command (explicit, works regardless of login shell)
+    env_parts = []
     if remote_ams_root:
-        env_prefix += f"AMS_OUTPUT_ROOT={remote_ams_root} "
+        env_parts.append(f"AMS_OUTPUT_ROOT={shlex.quote(remote_ams_root)}")
     if cds_lib:
-        env_prefix += f"CDS_LIB_PATH_28={cds_lib} "
+        env_parts.append(f"CDS_LIB_PATH_28={shlex.quote(cds_lib)}")
+    env_prefix = " ".join(env_parts) + " " if env_parts else ""
 
-    log_file  = f"{_CALIBRE_REMOTE_BASE}/{cell_tag}_run.log"
-    done_file = f"{_CALIBRE_REMOTE_BASE}/{cell_tag}_done.txt"
+    log_file = f"{_CALIBRE_REMOTE_BASE}/{cell_tag}_run.log"
 
-    # ── Try SKILL async path first (Fix A) ────────────────────────────────────
-    skill_ok = False
-    try:
-        probe = _get_client().execute_skill("(1+1)", timeout=5)
-        skill_ok = bool(getattr(probe, "ok", False))
-    except Exception:
-        pass
-
-    rc = 1
-    if skill_ok:
-        print("[execute_csh_script] using SKILL async path (non-blocking)")
-        rc, _ = _run_calibre_async(
-            remote_script, env_prefix, args_str,
-            remote_ams_root, log_file, done_file,
-            poll_secs=8.0, timeout=timeout,
-        )
-        if rc == 0:
-            return "t"
-        # Fall through to SSH path on non-zero rc
-        print(f"[execute_csh_script] SKILL async rc={rc}, retrying via SSH")
-
-    # ── SSH direct path (fallback) ─────────────────────────────────────────────
+    # ── SSH direct path ────────────────────────────────────────────────────────
+    # Use csh -f to skip .cshrc (avoid interference from user login scripts)
+    # and ensure the calibre scripts' own environment setup takes effect cleanly.
     print("[execute_csh_script] using SSH direct path")
     remote_cmd = (
         f"chmod +x {shlex.quote(remote_script)} && "
-        f"{env_prefix}csh {shlex.quote(remote_script)} {args_str}"
+        f"env {env_prefix}csh -f {shlex.quote(remote_script)} {args_str}"
     )
     try:
         result = ssh.run_command(remote_cmd, timeout=timeout)
@@ -717,12 +633,25 @@ def execute_csh_script(script_path: str, *args, timeout: int = 300) -> str:
     if rc == 0:
         return stdout or "t"
 
+    # Try to fetch the remote run log for diagnostics
+    log_content = ""
+    try:
+        log_res = ssh.run_command(
+            f"cat {shlex.quote(log_file)} 2>/dev/null | tail -80", timeout=30
+        )
+        log_content = getattr(log_res, "stdout", "") or ""
+    except Exception:
+        pass
+
     local = _run_local_csh(script_path, args, timeout)
     if not str(local).startswith("Local csh execution failed"):
         return local
-    return (
-        f"Remote execution failed (rc={rc}):\n"
-        f"stdout: {stdout.strip()}\n"
-        f"stderr: {stderr.strip()}\n"
-        f"fallback local: {local}"
-    )
+    parts = [
+        f"Remote csh execution failed (rc={rc}):",
+        f"stdout: {stdout.strip()}",
+        f"stderr: {stderr.strip()}",
+    ]
+    if log_content.strip():
+        parts.append(f"--- remote log (last 80 lines) ---\n{log_content.strip()}")
+    parts.append(f"fallback local: {local}")
+    return "\n".join(parts)

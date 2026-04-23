@@ -159,7 +159,7 @@ def main():
         print(f"   PEX output directory: {pex_dir}")
 
         # Note: run_pex.csh expects arguments in order: <library> <topCell> [view] [tech_node] [runDir]
-        result = execute_csh_script(str(script_path), lib, cell, view, node, str(pex_dir), timeout=300)
+        result = execute_csh_script(str(script_path), lib, cell, view, node, str(pex_dir), timeout=900)
         print(f"   Script execution completed")
 
         if not result or str(result).startswith("Remote csh execution failed"):
@@ -172,6 +172,9 @@ def main():
             print(f"     2. Calibre PEX rules file is missing")
             print(f"     3. Insufficient permissions")
             print(f"     4. Network/daemon issues")
+            print(f"     5. Cadence/Mentor environment not sourced correctly")
+            print(f"   Full output:")
+            print(str(result))
             # Attempt to remove the pex output directory before returning
             try:
                 if pex_dir.exists():
