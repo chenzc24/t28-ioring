@@ -217,6 +217,19 @@ def main():
         print(f"   Summary file: {summary_file}")
         print(f"   Report file: {report_file}")
 
+        if not os.path.exists(summary_file):
+            _write_report("LVS report",
+                          f"LVS summary file not found: {summary_file}\n"
+                          "The LVS script completed but did not generate the expected output.\n"
+                          "This usually means stale files from a previous cell were used,\n"
+                          "or the Calibre LVS run itself failed silently.",
+                          report_file)
+            print(f"❌ Error: LVS summary file not found: {summary_file}")
+            print(f"   The LVS script completed (exit 0) but no summary was produced for cell '{cell}'.")
+            print(f"   This may indicate stale output from a previous run was reused.")
+            print(f"   Report file: {report_file}")
+            sys.exit(1)
+
         parsed = _parse_lvs_summary(summary_file)
         success, msg = _write_report("LVS report", parsed, report_file)
         if not success:

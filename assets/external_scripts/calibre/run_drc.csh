@@ -177,11 +177,15 @@ set summaryFile = "PIPO.SUM.${topCell}"
 set strmFile = "${topCell}.calibre.db"
 set tmpRuleFile = "_drc_rule_tmp"
 
-# Create run directory if it does not exist
+# Create run directory if it does not exist, then clean stale output files
 if (! -d $runDir) then
     mkdir -p $runDir
     chmod 755 $runDir
 endif
+# Remove stale output from previous runs to avoid mixing results from different cells
+rm -f "$runDir/$strmFile" "$runDir/$logFile" "$runDir/$summaryFile" \
+      "$runDir/$tmpRuleFile" \
+      "$runDir/${topCell}.drc.results" "$runDir/${topCell}.drc.summary"
 
 # Verify the configured cds.lib exists and is readable
 if (! -f "$cdsLibPath") then

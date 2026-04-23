@@ -54,6 +54,8 @@ def run_il_file(il_file_path: str, lib: str, cell: str, view: str = "layout", sa
     Uses load_skill_file() which uploads the .il to the remote EDA server via SSH
     before calling load() in Virtuoso.  This is required when running from Windows
     because Virtuoso (on Linux) cannot access local Windows paths directly.
+
+    Includes automatic retry (up to 2 attempts) to handle transient upload/execution failures.
     """
     from assets.utils.bridge_utils import (
         open_cell_view_by_type,
@@ -88,15 +90,24 @@ def run_il_file(il_file_path: str, lib: str, cell: str, view: str = "layout", sa
         return f"❌ Error: File {skill_path} is not a valid il/skill file"
 
     # Upload to remote server then load — works for both local and remote Virtuoso.
-    ok = load_skill_file(str(skill_path.resolve()), timeout=300)
-    if ok:
-        if save:
-            if save_current_cellview(timeout=30):
-                return f"✅ il file {skill_path.name} executed and saved successfully"
-            return f"✅ il file {skill_path.name} executed successfully but save failed"
-        return f"✅ il file {skill_path.name} executed successfully"
+    # Retry up to 2 times to handle transient upload/execution failures.
+    max_attempts = 2
+    for attempt in range(1, max_attempts + 1):
+        ok = load_skill_file(str(skill_path.resolve()), timeout=300)
+        if ok:
+            if save:
+                if save_current_cellview(timeout=30):
+                    return f"✅ il file {skill_path.name} executed and saved successfully"
+                return f"✅ il file {skill_path.name} executed successfully but save failed"
+            return f"✅ il file {skill_path.name} executed successfully"
 
-    return f"❌ il file {skill_path.name} execution failed"
+        if attempt < max_attempts:
+            print(f"   ⚠️ Attempt {attempt}/{max_attempts} failed, retrying in 3s...")
+            sleep(3)
+            ui_redraw(timeout=10)
+            rb_exec("cv = geGetEditCellView()", timeout=10)
+
+    return f"❌ il file {skill_path.name} execution failed after {max_attempts} attempts"
 
 
 def main():
