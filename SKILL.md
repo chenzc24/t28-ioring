@@ -65,7 +65,20 @@ fi
 mkdir -p "$output_dir"
 echo "AMS_OUTPUT_ROOT=${AMS_OUTPUT_ROOT}"
 echo "output_dir=${output_dir}"
+
+# Resolve Python interpreter (prefer .venv over system python3)
+WORK_ROOT_ABS="$(cd "${WORK_ROOT}" && pwd)"
+if [ -f "${WORK_ROOT_ABS}/.venv/Scripts/python.exe" ]; then
+  export AMS_PYTHON="${WORK_ROOT_ABS}/.venv/Scripts/python.exe"
+elif [ -f "${WORK_ROOT_ABS}/.venv/bin/python" ]; then
+  export AMS_PYTHON="${WORK_ROOT_ABS}/.venv/bin/python"
+else
+  export AMS_PYTHON="python3"
+fi
+echo "AMS_PYTHON=${AMS_PYTHON}"
 ```
+
+**IMPORTANT:** All subsequent steps MUST use `$AMS_PYTHON` instead of `python3`.
 
 Parse user input: signal list, ring dimensions (width × height), placement order, inner pad insertions, voltage domain specifications.
 
@@ -169,7 +182,7 @@ If any gate fails, repair JSON first and repeat Step 4. Do not proceed to Step 5
 ### Step 5: Validate JSON
 
 ```bash
-python3 $SCRIPTS_PATH/validate_intent.py {output_dir}/io_ring_intent_graph.json
+$AMS_PYTHON $SCRIPTS_PATH/validate_intent.py {output_dir}/io_ring_intent_graph.json
 ```
 
 - Exit 0 → proceed
@@ -205,7 +218,7 @@ Options presented to user:
 #### If user chooses "Open Layout Editor":
 
 ```bash
-python3 $SCRIPTS_PATH/build_confirmed_config.py \
+$AMS_PYTHON $SCRIPTS_PATH/build_confirmed_config.py \
   {output_dir}/io_ring_intent_graph.json \
   {output_dir}/io_ring_confirmed.json \
   T28
@@ -220,7 +233,7 @@ This will:
 #### If user chooses "Skip Editor" (or timeout):
 
 ```bash
-python3 $SCRIPTS_PATH/build_confirmed_config.py \
+$AMS_PYTHON $SCRIPTS_PATH/build_confirmed_config.py \
   {output_dir}/io_ring_intent_graph.json \
   {output_dir}/io_ring_confirmed.json \
   T28 \
@@ -230,12 +243,12 @@ python3 $SCRIPTS_PATH/build_confirmed_config.py \
 ### Step 7: Generate SKILL Scripts
 
 ```bash
-python3 $SCRIPTS_PATH/generate_schematic.py \
+$AMS_PYTHON $SCRIPTS_PATH/generate_schematic.py \
   {output_dir}/io_ring_confirmed.json \
   {output_dir}/io_ring_schematic.il \
   T28
 
-python3 $SCRIPTS_PATH/generate_layout.py \
+$AMS_PYTHON $SCRIPTS_PATH/generate_layout.py \
   {output_dir}/io_ring_confirmed.json \
   {output_dir}/io_ring_layout.il \
   T28
@@ -244,7 +257,7 @@ python3 $SCRIPTS_PATH/generate_layout.py \
 ### Step 8: Check Virtuoso Connection
 
 ```bash
-python3 $SCRIPTS_PATH/check_virtuoso_connection.py
+$AMS_PYTHON $SCRIPTS_PATH/check_virtuoso_connection.py
 ```
 
 - Exit 0 → proceed
@@ -253,13 +266,13 @@ python3 $SCRIPTS_PATH/check_virtuoso_connection.py
 ### Step 9: Execute SKILL Scripts in Virtuoso
 
 ```bash
-python3 $SCRIPTS_PATH/run_il_with_screenshot.py \
+$AMS_PYTHON $SCRIPTS_PATH/run_il_with_screenshot.py \
   {output_dir}/io_ring_schematic.il \
   {lib} {cell} \
   {output_dir}/schematic_screenshot.png \
   schematic
 
-python3 $SCRIPTS_PATH/run_il_with_screenshot.py \
+$AMS_PYTHON $SCRIPTS_PATH/run_il_with_screenshot.py \
   {output_dir}/io_ring_layout.il \
   {lib} {cell} \
   {output_dir}/layout_screenshot.png \
@@ -269,7 +282,7 @@ python3 $SCRIPTS_PATH/run_il_with_screenshot.py \
 ### Step 10: Run DRC
 
 ```bash
-python3 $SCRIPTS_PATH/run_drc.py {lib} {cell} layout T28
+$AMS_PYTHON $SCRIPTS_PATH/run_drc.py {lib} {cell} layout T28
 ```
 
 - Exit 0 -> proceed to Step 11
@@ -282,7 +295,7 @@ python3 $SCRIPTS_PATH/run_drc.py {lib} {cell} layout T28
 ### Step 11: Run LVS
 
 ```bash
-python3 $SCRIPTS_PATH/run_lvs.py {lib} {cell} layout T28
+$AMS_PYTHON $SCRIPTS_PATH/run_lvs.py {lib} {cell} layout T28
 ```
 
 - Exit 0 -> proceed to Step 12

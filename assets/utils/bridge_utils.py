@@ -469,39 +469,67 @@ def _detect_fs_mode(ssh, local_ams_root: str) -> str:
         return "remote"
 
 
-def _download_calibre_output(ssh, remote_root: str, local_root: str, timeout: int = 180) -> Optional[str]:
+def _download_calibre_output(ssh, remote_root: str, local_root: str, timeout: int = 180,
+                            max_retries: int = 2, retry_delay: int = 10) -> Optional[str]:
     """Pull `drc/` and `lvs/` subtrees and top-level `*_report*` files from
     `remote_root` back to `local_root`. Returns None on success, or an error
     string. Missing remote subdirs are silently skipped.
+
+    Retries up to ``max_retries`` times when downloaded directories are empty,
+    to handle Calibre writing summary files with a slight delay after the csh
+    script returns.
     """
-    try:
-        listing = ssh.run_command(
-            f"ls -d {shlex.quote(remote_root)}/drc {shlex.quote(remote_root)}/lvs 2>/dev/null",
-            timeout=60,
-        )
-        present = [
-            line.strip()
-            for line in (getattr(listing, "stdout", "") or "").splitlines()
-            if line.strip()
-        ]
-    except Exception as e:
-        return f"list failed: {e}"
+    import time as _time
 
     local_root_p = Path(local_root).expanduser().resolve(strict=False)
     local_root_p.mkdir(parents=True, exist_ok=True)
 
-    for remote_dir in present:
-        name = remote_dir.rsplit("/", 1)[-1]
-        local_target = local_root_p / name
-        local_target.mkdir(parents=True, exist_ok=True)
+    for attempt in range(1, max_retries + 2):          # 1 initial + max_retries
         try:
-            res = ssh.download_file(remote_dir, local_target, timeout=timeout, recursive=True)
-            rc = getattr(res, "returncode", 1)
-            if rc != 0:
-                err = (getattr(res, "stderr", "") or "").strip()
-                return f"download {remote_dir} failed (rc={rc}): {err}"
+            listing = ssh.run_command(
+                f"ls -d {shlex.quote(remote_root)}/drc {shlex.quote(remote_root)}/lvs 2>/dev/null",
+                timeout=60,
+            )
+            present = [
+                line.strip()
+                for line in (getattr(listing, "stdout", "") or "").splitlines()
+                if line.strip()
+            ]
         except Exception as e:
-            return f"download {remote_dir} failed: {e}"
+            return f"list failed: {e}"
+
+        for remote_dir in present:
+            name = remote_dir.rsplit("/", 1)[-1]
+            local_target = local_root_p / name
+            local_target.mkdir(parents=True, exist_ok=True)
+            try:
+                res = ssh.download_file(remote_dir, local_target, timeout=timeout, recursive=True)
+                rc = getattr(res, "returncode", 1)
+                if rc != 0:
+                    err = (getattr(res, "stderr", "") or "").strip()
+                    return f"download {remote_dir} failed (rc={rc}): {err}"
+            except Exception as e:
+                return f"download {remote_dir} failed: {e}"
+
+        # Verify that at least one summary file landed in each subdirectory.
+        all_ok = True
+        for subdir in ("drc", "lvs"):
+            local_sub = local_root_p / subdir
+            if local_sub.is_dir():
+                has_content = any(local_sub.iterdir())
+                if not has_content:
+                    all_ok = False
+                    break
+
+        if all_ok:
+            return None
+
+        # Empty directory detected — retry after a short wait.
+        if attempt <= max_retries:
+            print(f"[download] retry {attempt}/{max_retries}: "
+                  f"output dirs empty, waiting {retry_delay}s before retry...")
+            _time.sleep(retry_delay)
+
     return None
 
 

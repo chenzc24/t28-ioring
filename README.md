@@ -58,11 +58,17 @@ A Claude Code skill for automated IO Ring generation on TSMC 28nm (T28) process 
 ### 0. Install virtuoso-bridge-lite (once per machine)
 
 This skill depends on **virtuoso-bridge-lite** for everything that touches Virtuoso
-or the EDA server. Install it first:
+or the EDA server. Install it first — in its own virtual environment so it won't
+clash with other bridges or skills on the same machine:
 
 ```bash
 git clone <your virtuoso-bridge-lite repo>
 cd virtuoso-bridge-lite
+
+python -m venv .venv
+source .venv/bin/activate        # Linux / Mac
+# .venv\Scripts\activate         # Windows (Git Bash or PowerShell)
+
 pip install -e .
 
 # Verify:
@@ -108,17 +114,28 @@ Claude Code discovers skills by scanning the `.claude/skills/` directory at the 
 
 ### 2. Install Python dependencies
 
+> **Why a `.venv`?** If you run multiple bridges or skills on the same machine,
+> each should have its own virtual environment to avoid dependency conflicts.
+
 Run this from the skill destination directory after copying:
 
 ```bash
 # Project-level install:
 cd .claude/skills/io-ring-orchestrator-T28
+
+python -m venv .venv
+source .venv/bin/activate        # Linux / Mac
+# .venv\Scripts\activate         # Windows
+
 pip install -r requirements.txt
 
 # Or, user-level install:
 cd ~/.claude/skills/io-ring-orchestrator-T28
-pip install -r requirements.txt
+python -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt
 ```
+
+The skill's runtime (`SKILL.md` Step 0) auto-detects `.venv/bin/python` (Linux)
+or `.venv/Scripts/python.exe` (Windows) and prefers it over system `python3`.
 
 ### 3. Configure T28's `.env` (see [Configuration](#configuration))
 
@@ -129,80 +146,132 @@ connection lives in `~/.virtuoso-bridge/.env`, already configured in Step 0.
 
 ```bash
 virtuoso-bridge status                          # tunnel + daemon
-python3 scripts/check_virtuoso_connection.py    # end-to-end SKILL round-trip
+
+# From the skill directory (.venv activated):
+python scripts/check_virtuoso_connection.py     # end-to-end SKILL round-trip
 ```
+
+### 5. AI-Guided Environment Checklist
+
+When assisting a new user with setup, an AI agent can perform most steps
+automatically. Use this checklist to decide what to do vs. what to ask.
+
+#### Agent can automate
+
+| Step | Action |
+|---|---|
+| Create `.venv` | `python -m venv .venv` in each skill/bridge directory |
+| Install dependencies | `.venv/bin/pip install -r requirements.txt` |
+| Initialize bridge | `virtuoso-bridge init` (creates `~/.virtuoso-bridge/.env` template) |
+| Start bridge | `virtuoso-bridge start` |
+| Detect filesystem mode | Auto-detected — Windows → `remote`, NFS probe → `shared` |
+| Resolve output path | Defaults to `./output` if neither `AMS_OUTPUT_ROOT` nor `AMS_IO_AGENT_PATH` is set |
+| Verify connection | `python scripts/check_virtuoso_connection.py` |
+
+#### Must ask user
+
+| Variable | Config file | What to ask |
+|---|---|---|
+| `VB_REMOTE_HOST` | `~/.virtuoso-bridge/.env` | "What is the hostname or IP of your EDA server?" |
+| `VB_REMOTE_USER` | `~/.virtuoso-bridge/.env` | "What is your SSH username on the EDA server?" |
+| `VB_REMOTE_PORT` | `~/.virtuoso-bridge/.env` | "SSH port? (default: 22)" |
+| Jump host | `~/.virtuoso-bridge/.env` | "Do you connect through a jump host or bastion? If so, provide hostname and user." |
+| `CDS_LIB_PATH_28` | T28 project `.env` | "What is the **remote** Linux path to your T28 `cds.lib`?" |
+| `MGC_HOME` | `env_common.csh` | "Where is Calibre installed on the EDA server? (e.g. `/home/mentor/calibre/...`)" |
+| `PDK_LAYERMAP_28` | `env_common.csh` | "Path to the T28 PDK layer map file on the EDA server?" |
+| `incFILE_28` | `env_common.csh` | "Path to the T28 LVS include file (`source.added`) on the EDA server?" |
+
+#### Ask only if user wants to override defaults
+
+| Variable | Config file | Default | What to ask |
+|---|---|---|---|
+| `VB_FS_MODE` | T28 project `.env` | Auto-detect | "Filesystem mode: `shared` (NFS) or `remote`? (default: auto-detect)" |
+| `AMS_OUTPUT_ROOT` | T28 project `.env` | `./output` | "Where should generated outputs go? (default: `./output`)" |
+| `AMS_IO_AGENT_PATH` | T28 project `.env` | — | "Workspace root path? (only needed if `AMS_OUTPUT_ROOT` is not set)" |
+
+> **Tip for agents:** After collecting the "Must ask" values, write them into the
+> appropriate config files, then run the automatable steps. End with the verify
+> command to confirm everything works end-to-end.
 
 ---
 
 ## Configuration
 
-### `.env` — Runtime Variables
+Three configuration files control different aspects of the system.
+Each is independent — edit only what applies to your setup.
 
-Create or edit `.env` in the skill root (`io-ring-orchestrator-T28/.env`). This file
-holds **only T28-specific** config. Virtuoso connection details live separately in
-`~/.virtuoso-bridge/.env` (managed by `virtuoso-bridge init`).
+---
 
-```env
-# === Required ===
+### 1. T28 Project `.env` — Skill Runtime Variables
 
-# Path to your T28 cds.lib (used by Calibre strmout/si wrappers)
-CDS_LIB_PATH_28=/absolute/path/to/your/T28/cds.lib
+Create or edit `.env` in the skill root (`io-ring-orchestrator-T28/.env`).
+This file holds **only T28-specific** config.
 
-# === Optional output path controls ===
+**Required:**
 
-# 1) Explicit output root — highest priority.
-#    All generated artifacts and reports will be written under this path.
-#AMS_OUTPUT_ROOT=/absolute/path/to/workspace/output
+| Variable | Description |
+|---|---|
+| `CDS_LIB_PATH_28` | Absolute **remote** path to `cds.lib` for T28 (read by Calibre csh wrappers) |
 
-# 2) Workspace root hint — used to derive output path when AMS_OUTPUT_ROOT is not set.
-#    Scripts use ${AMS_IO_AGENT_PATH}/output as the output root.
-#AMS_IO_AGENT_PATH=/absolute/path/to/workspace
-```
+**Optional — Filesystem Mode:**
 
-**Variable reference:**
-
-| Variable | Required | Default | Description |
+| Variable | Default | Values | Description |
 |---|---|---|---|
-| `CDS_LIB_PATH_28` | Yes | — | Absolute path to `cds.lib` for T28; read by Calibre csh wrappers |
-| `AMS_OUTPUT_ROOT` | No | `./output` | Explicit output root for all generated files |
-| `AMS_IO_AGENT_PATH` | No | — | Workspace root; used to derive output path when `AMS_OUTPUT_ROOT` is not set |
+| `VB_FS_MODE` | Auto-detected | `shared` \| `remote` | How files are exchanged with the compute server (see [below](#filesystem-mode-vb_fs_mode)) |
 
-For Virtuoso connection (host, user, ports, jump host), the bridge config is
-resolved by `bridge_utils.py::_load_vb_env()` in this priority order:
+**Optional — Output Paths:**
 
-1. **`$VB_ENV_FILE`** — absolute path to a `.env` file (explicit override)
-2. **Project-level** — nearest `.env` containing `VB_REMOTE_HOST` or
-   `VB_LOCAL_PORT`, searching cwd and its parents
-3. **User-level** — `~/.virtuoso-bridge/.env` (created by `virtuoso-bridge init`)
-
-Examples:
-
-```powershell
-# Project-level (recommended for portable setups):
-# Put a .env with VB_REMOTE_HOST etc. at your workspace root, e.g.
-#   C:\Users\you\Desktop\bridge-Agent\.env
-# Any T28 script run from inside that tree picks it up automatically.
-
-# Explicit path (overrides all others):
-$env:VB_ENV_FILE = "D:\configs\my-vb.env"
-
-# User-level (default — virtuoso-bridge init creates this):
-#   ~/.virtuoso-bridge/.env
-```
-
-To see which `.env` the scripts will use on your current setup, run:
-`python scripts/check_virtuoso_connection.py` — it prints the resolved source.
+| Variable | Default | Description |
+|---|---|---|
+| `AMS_OUTPUT_ROOT` | — | Explicit output root for all generated files (highest priority) |
+| `AMS_IO_AGENT_PATH` | — | Workspace root; scripts use `${AMS_IO_AGENT_PATH}/output` when `AMS_OUTPUT_ROOT` is not set |
 
 **Output path resolution order:**
 1. `AMS_OUTPUT_ROOT` (if set)
 2. `${AMS_IO_AGENT_PATH}/output` (if `AMS_IO_AGENT_PATH` is set)
 3. `$(pwd)/output` (current working directory fallback)
 
+#### Filesystem Mode (`VB_FS_MODE`)
+
+Controls how files are exchanged between your machine and the compute server.
+
+| Mode | When to use | Behavior |
+|---|---|---|
+| `shared` | Linux workstation sharing NFS with the compute server | Both machines see the same paths; Calibre reads/writes directly |
+| `remote` | Windows PC or machine without shared filesystem | Scripts are pushed via SSH to `/tmp/vb_t28_calibre/`; results pulled back via SSH |
+
+**Auto-detection** (when `VB_FS_MODE` is not set):
+1. If local path is Windows-style (`C:\...`) → `remote`
+2. Probe remote server: `test -d <local_ams_root>` → `shared` if it exists
+3. Otherwise → `remote`
+
+> On Windows, auto-detection always selects `remote` — no manual setting needed.
+
 ---
 
-### `env_common.csh` — Calibre / PDK Paths
+### 2. Bridge `.env` — Virtuoso Connection
 
-Located at `assets/external_scripts/calibre/env_common.csh`. This file is sourced by all Calibre wrapper scripts (`run_drc.csh`, `run_lvs.csh`, `run_pex.csh`). **Update the following paths to match your site installation before running DRC/LVS/PEX:**
+Managed by `virtuoso-bridge init`. Lives at `~/.virtuoso-bridge/.env`.
+Contains SSH and tunnel settings (`VB_REMOTE_HOST`, `VB_REMOTE_USER`, ports, jump host, etc.).
+
+**Resolution priority** (used by `bridge_utils.py::_load_vb_env()`):
+
+1. **`$VB_ENV_FILE`** — absolute path to any `.env` file (explicit override)
+2. **Project-level** — nearest `.env` containing `VB_REMOTE_HOST` or `VB_LOCAL_PORT`, searching from cwd upward
+3. **User-level** — `~/.virtuoso-bridge/.env` (created by `virtuoso-bridge init`)
+
+To verify which `.env` is resolved on your setup:
+```bash
+python scripts/check_virtuoso_connection.py   # prints the resolved source
+```
+
+---
+
+### 3. `env_common.csh` — Calibre / PDK Paths
+
+Located at `assets/external_scripts/calibre/env_common.csh`. Sourced by all Calibre
+wrapper scripts (`run_drc.csh`, `run_lvs.csh`, `run_pex.csh`). **Update these
+paths to match your site installation before running DRC/LVS/PEX:**
 
 ```csh
 # Calibre installation root
@@ -640,4 +709,3 @@ All outputs are written to `${AMS_OUTPUT_ROOT}/generated/<YYYYMMDD_HHMMSS>/`:
 | Skill contract | `SKILL.md` | Detailed workflow contract and step definitions |
 | virtuoso-bridge-lite | `virtuoso-bridge-lite/README.md` | Full bridge setup: SSH tunnels, daemon, multi-profile, CLI reference |
 | T28 technology reference | `references/T28_Technology.md` | Device specifications and process details |
-| Skills interface spec | `../../SKILL_INTERFACES.md` | Input/output interfaces for all skills |
