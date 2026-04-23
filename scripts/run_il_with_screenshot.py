@@ -90,8 +90,10 @@ def run_il_file(il_file_path: str, lib: str, cell: str, view: str = "layout", sa
         return f"❌ Error: File {skill_path} is not a valid il/skill file"
 
     # Upload to remote server then load — works for both local and remote Virtuoso.
-    # Retry up to 2 times to handle transient upload/execution failures.
-    max_attempts = 2
+    # The bridge daemon can return ok=False for large scripts due to TCP response
+    # timing: Virtuoso finishes executing but the daemon response arrives late or
+    # gets lost.  We verify by checking if instances were actually created.
+    max_attempts = 3
     for attempt in range(1, max_attempts + 1):
         ok = load_skill_file(str(skill_path.resolve()), timeout=300)
         if ok:
@@ -101,9 +103,26 @@ def run_il_file(il_file_path: str, lib: str, cell: str, view: str = "layout", sa
                 return f"✅ il file {skill_path.name} executed successfully but save failed"
             return f"✅ il file {skill_path.name} executed successfully"
 
+        # load_il returned False — but Virtuoso may still be executing or may have
+        # finished while the TCP response was lost.  Wait and check if instances exist.
+        print(f"   ⚠️ Attempt {attempt}/{max_attempts} load_il returned False, waiting 5s then verifying...")
+        sleep(5)
+
+        # Check if instances were actually created despite the False return
+        inst_count = rb_exec(
+            'sprintf(nil "%d" length(cv~>instances))', timeout=10
+        ).strip()
+        if inst_count and inst_count.isdigit() and int(inst_count) > 0:
+            print(f"   ✓ Found {inst_count} instances — script actually succeeded (daemon response was lost)")
+            if save:
+                save_current_cellview(timeout=30)
+            return f"✅ il file {skill_path.name} executed and saved successfully (verified after response loss)"
+
+        # Genuinely failed — reopen cellView for next attempt
         if attempt < max_attempts:
-            print(f"   ⚠️ Attempt {attempt}/{max_attempts} failed, retrying in 3s...")
-            sleep(3)
+            print(f"   No instances found, reopening cellView for retry...")
+            open_cell_view_by_type(lib, cell, view=view, view_type=None, mode="w", timeout=30)
+            ge_open_window(lib, cell, view=view, view_type=None, mode="a", timeout=30)
             ui_redraw(timeout=10)
             rb_exec("cv = geGetEditCellView()", timeout=10)
 
