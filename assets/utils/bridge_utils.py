@@ -142,12 +142,28 @@ def load_skill_file(file_path: str, timeout: int = 60) -> bool:
     """Upload the .il file to the remote server (if SSH tunnel active) and load it
     in Virtuoso CIW. Returns True on success.
 
-    Uses VirtuosoClient.load_il(), which handles the SSH upload automatically when a
-    tunnel is active, then executes load("/remote/path") in Virtuoso.
+    Two-phase approach for reliability:
+    1. Upload the file via VirtuosoClient.load_il() (handles SSH upload + load).
+    2. If load_il reports failure (ok=False), the daemon response may have been lost
+       while Virtuoso was still executing.  Re-upload and retry using direct
+       execute_skill('load(...)') which uses a fresh TCP connection.
     """
     try:
-        result = _get_client().load_il(file_path, timeout=timeout)
-        return bool(getattr(result, "ok", False))
+        client = _get_client()
+        result = client.load_il(file_path, timeout=timeout)
+        if getattr(result, "ok", False):
+            return True
+    except Exception:
+        pass
+
+    # load_il returned False or threw — retry with direct execute_skill.
+    # Re-upload to ensure the remote file is fresh, then load via raw SKILL command.
+    try:
+        client = _get_client()
+        prepared, _ = client._prepare_il_path(Path(file_path))
+        load_cmd = f'load("{prepared}")'
+        result2 = client.execute_skill(load_cmd, timeout=timeout)
+        return getattr(result2, "ok", False)
     except Exception:
         return False
 
