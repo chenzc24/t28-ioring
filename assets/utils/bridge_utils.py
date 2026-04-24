@@ -392,6 +392,14 @@ def load_script_and_take_screenshot_verbose(
         errs = getattr(load_result, "errors", None) or []
         return False, f"load failed: {'; '.join(errs) or 'unknown error'}"
 
+    # Ensure the remote screenshot directory exists before hiWindowSaveImage
+    # tries to write into it, otherwise Virtuoso fails with "no permission".
+    if remote_mode:
+        import shlex
+        ssh = _get_ssh()
+        remote_dir = os.path.dirname(remote_png)
+        ssh.run_command(f"mkdir -p {shlex.quote(remote_dir)}", timeout=15)
+
     take_ret = rb_exec(f'takeScreenshot("{out}")', timeout=timeout)
     if take_ret and ("error" in take_ret.lower() or "undefined function" in take_ret.lower()):
         return False, f"takeScreenshot failed: {take_ret}"
