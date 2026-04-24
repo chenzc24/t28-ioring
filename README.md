@@ -22,10 +22,10 @@ communication (TCP + SSH). The project layout after setup:
 ```
 <project-root>/
 ├── .venv/                          ← one shared Python env (bridge + all skills)
-├── .env                            ← SSH + T28 config (you fill this in)
 ├── virtuoso-bridge-lite/           ← bridge source
 └── .claude/skills/
     └── io-ring-orchestrator-T28/
+        ├── .env                    ← T28 skill config (CDS_LIB_PATH_28, VB_FS_MODE)
         └── assets/external_scripts/calibre/
             └── site_local.csh      ← Calibre/PDK paths on the EDA server (you fill this in)
 ```
@@ -87,21 +87,28 @@ pip install -e virtuoso-bridge-lite
 pip install -r .claude/skills/io-ring-orchestrator-T28/requirements.txt
 ```
 
-**2. Configure `.env`** (project root — bridge + T28 vars in one file):
+**2. Configure bridge connection:**
+
+The bridge `.env` is created by `virtuoso-bridge init`. See
+[`virtuoso-bridge-lite/README.md`](https://github.com/chenzc24/virtuoso-bridge-lite#quick-start)
+for full details (jump hosts, multi-profile, local mode).
+
 ```bash
-cp .env.example .env   # then edit with your values
+virtuoso-bridge init <username>@<eda-server>    # creates ~/.virtuoso-bridge/.env
+# With jump host:
+# virtuoso-bridge init <username>@<eda-server> -J <username>@<jump-host>
 ```
+
+**3. Configure T28 skill `.env`:**
+
+Edit `.claude/skills/io-ring-orchestrator-T28/.env` — the fields marked `# ← CHANGE`:
 
 | Variable | Required | What to set |
 |---|---|---|
-| `VB_REMOTE_HOST` | Yes | EDA server hostname or IP |
-| `VB_REMOTE_USER` | Yes | Your SSH username on the EDA server |
 | `CDS_LIB_PATH_28` | Yes | Remote Linux path to your T28 `cds.lib` |
-| `VB_JUMP_HOST` | If needed | Bastion/jump host hostname |
 | `VB_FS_MODE` | Optional | `remote` (Windows) or `shared` (NFS Linux). Auto-detected if blank. |
-| `AMS_OUTPUT_ROOT` | Optional | Output directory. Defaults to `<project-root>/output`. |
 
-**3. Configure `site_local.csh`** (Calibre/PDK paths on the EDA server):
+**4. Configure `site_local.csh`** (Calibre/PDK paths on the EDA server):
 ```bash
 cd .claude/skills/io-ring-orchestrator-T28/assets/external_scripts/calibre
 cp site_local.csh.example site_local.csh   # then edit with your site paths
@@ -110,7 +117,7 @@ cp site_local.csh.example site_local.csh   # then edit with your site paths
 Set `MGC_HOME`, `PDK_LAYERMAP_28`, `incFILE_28`, and source your site's Cadence/Mentor
 cshrc files. Do **not** edit `env_common.csh` — `site_local.csh` overrides it.
 
-**4. Start bridge and verify:**
+**5. Start bridge and verify:**
 ```bash
 virtuoso-bridge start
 virtuoso-bridge status                  # tunnel ✓  daemon ✓
@@ -277,20 +284,21 @@ Compare output against `T28_Testbench/golden_output/<case>/` to verify correctne
 
 ## Configuration Reference
 
-### `.env` variables
+### Bridge `.env` variables
+
+Bridge connection is configured via `virtuoso-bridge init`. See
+[`virtuoso-bridge-lite/README.md`](https://github.com/chenzc24/virtuoso-bridge-lite#quick-start)
+for the full reference (`VB_REMOTE_HOST`, `VB_REMOTE_USER`, jump hosts, multi-profile, etc.).
+
+### T28 skill `.env` variables
 
 | Variable | Description | Required |
 |---|---|---|
-| `VB_REMOTE_HOST` | EDA server hostname/IP | Yes |
-| `VB_REMOTE_USER` | SSH username | Yes |
-| `VB_REMOTE_PORT` | SSH port (default: 22) | No |
-| `VB_JUMP_HOST` / `VB_JUMP_USER` | Bastion host | If needed |
-| `VB_FS_MODE` | `shared` or `remote` (auto-detect if blank) | No |
 | `CDS_LIB_PATH_28` | Remote path to T28 `cds.lib` | Yes |
+| `VB_FS_MODE` | `shared` or `remote` (auto-detect if blank) | No |
 | `AMS_OUTPUT_ROOT` | Output root (default: `./output`) | No |
 
-Bridge vars can also live in `~/.virtuoso-bridge/.env` (user-level, shared across
-projects). The skill searches both — project root `.env` takes priority.
+These live in `.claude/skills/io-ring-orchestrator-T28/.env`.
 
 ### `site_local.csh` variables
 
@@ -380,44 +388,51 @@ One `.venv` serves all skills. To add a second skill later: `pip install -r .cla
 
 ---
 
-### Step 2 — Write `.env` ❓ → 🤖
+### Step 2 — Initialize bridge config ❓ → 🤖
+
+**Ask user — required:**
+
+| Question to ask user |
+|---|
+| "Hostname or IP of your EDA server?" |
+| "SSH username on that server?" |
+
+Then run `virtuoso-bridge init` to create the bridge `.env` with correct format and defaults:
 
 ```bash
-cp .env.example .env
+virtuoso-bridge init <username>@<eda-server>
+# With jump host:
+# virtuoso-bridge init <username>@<eda-server> -J <username>@<jump-host>
 ```
 
-**Ask user — required (must have before continuing):**
+This writes `~/.virtuoso-bridge/.env` (or project-root `.env`) with all bridge variables
+(`VB_REMOTE_HOST`, `VB_REMOTE_USER`, ports, jump host, etc.) in the correct format.
+**Do not** write the bridge `.env` manually — always use `virtuoso-bridge init`.
 
-| Variable | File | Question to ask user |
-|---|---|---|
-| `VB_REMOTE_HOST` | `.env` | "Hostname or IP of your EDA server?" |
-| `VB_REMOTE_USER` | `.env` | "SSH username on that server?" |
-| `CDS_LIB_PATH_28` | `.env` | "Remote Linux path to your T28 `cds.lib`? (e.g. `/home/youruser/TSMC28/cds.lib`)" |
+For advanced options (multi-profile, local mode, custom ports), see
+[`virtuoso-bridge-lite/README.md`](https://github.com/chenzc24/virtuoso-bridge-lite#quick-start).
 
-**Ask user — optional (use defaults if not provided):**
+---
 
-| Variable | File | Default | Question to ask user |
-|---|---|---|---|
-| `VB_REMOTE_PORT` | `.env` | `22` | "Non-standard SSH port?" |
-| `VB_JUMP_HOST` | `.env` | — | "Jump/bastion hostname? (blank = direct SSH)" |
-| `VB_JUMP_USER` | `.env` | = `VB_REMOTE_USER` | "Jump host username?" |
-| `VB_FS_MODE` | `.env` | auto-detect | "`shared` (NFS) or `remote` (Windows/no NFS)? Blank = auto." |
-| `AMS_OUTPUT_ROOT` | `.env` | `<project-root>/output` | "Custom output directory?" |
+### Step 3 — Configure T28 skill `.env` ❓ → 🤖
 
-Write the collected values directly into `.env`. Example of a complete filled-in file:
+**Ask user — required:**
+
+| Variable | Question to ask user |
+|---|---|
+| `CDS_LIB_PATH_28` | "Remote Linux path to your T28 `cds.lib`? (e.g. `/home/youruser/TSMC28/cds.lib`)" |
+
+Write the value into `.claude/skills/io-ring-orchestrator-T28/.env`. The file ships
+pre-filled with defaults — only update the fields marked `# ← CHANGE`:
 
 ```bash
-VB_REMOTE_HOST=eda-server.mysite.com
-VB_REMOTE_USER=jdoe
-VB_JUMP_HOST=bastion.mysite.com
-CDS_LIB_PATH_28=/home/jdoe/TSMC28/llm_IO/cds.lib
-VB_FS_MODE=remote
-AMS_OUTPUT_ROOT=C:/Users/jdoe/Desktop/bridge-Agent/output
+# Edit the skill .env:
+CDS_LIB_PATH_28=/home/<username>/TSMC28/llm_IO/cds.lib
 ```
 
 ---
 
-### Step 3 — Write `site_local.csh` ❓ → 🤖
+### Step 4 — Write `site_local.csh` ❓ → 🤖
 
 ```bash
 cp .claude/skills/io-ring-orchestrator-T28/assets/external_scripts/calibre/site_local.csh.example \
@@ -446,7 +461,7 @@ setenv incFILE_28 /home/process/tsmc28n/iPDK_CRN28HPC+ULL/Calibre/lvs/source.add
 
 ---
 
-### Step 4 — Start bridge and verify 🤖
+### Step 5 — Start bridge and verify 🤖
 
 ```bash
 virtuoso-bridge start         # opens SSH tunnel + deploys daemon on EDA server
@@ -474,13 +489,13 @@ python scripts/check_virtuoso_connection.py
 ```
 <project-root>/
 ├── .venv/                                         ← shared env (bridge + all skills)
-├── .env                                           ← written in Step 2
-├── .env.example                                   ← template (tracked in git)
 ├── virtuoso-bridge-lite/                          ← bridge source (editable install)
 └── .claude/skills/io-ring-orchestrator-T28/
+    ├── .env                                       ← T28 skill config (CDS_LIB_PATH_28, VB_FS_MODE)
     └── assets/external_scripts/calibre/
-        └── site_local.csh                         ← written in Step 3
+        └── site_local.csh                         ← written in Step 4
 ```
 
+Bridge config lives in `~/.virtuoso-bridge/.env` (created by `virtuoso-bridge init` in Step 2).
 `AMS_PYTHON` in `SKILL.md` Step 0 finds `.venv` at project root automatically —
 no manual activation needed when Claude Code runs scripts.
