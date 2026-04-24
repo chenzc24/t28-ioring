@@ -82,8 +82,12 @@ Auto-detected: Windows path (`C:\...`) → `remote`; NFS probe → `shared`. Set
 git clone https://github.com/chenzc24/virtuoso-bridge-lite.git
 mkdir -p .claude/skills
 git clone https://github.com/chenzc24/io-ring-orchestrator-T28.git .claude/skills/io-ring-orchestrator-T28
+```
+```bash
+# Create venv and install (Linux/Mac/Git Bash):
+python -m venv .venv && source .venv/bin/activate
+# Windows PowerShell:  python -m venv .venv; .venv\Scripts\Activate.ps1
 
-python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\Activate.ps1
 pip install -e virtuoso-bridge-lite
 pip install -r .claude/skills/io-ring-orchestrator-T28/requirements.txt
 ```
@@ -130,9 +134,9 @@ In Virtuoso CIW, load the daemon SKILL file once per session (path printed by `s
 load("/tmp/virtuoso_bridge_<user>/virtuoso_bridge/virtuoso_setup.il")
 ```
 ```bash
-cd .claude/skills/io-ring-orchestrator-T28
-../../.venv/bin/python scripts/check_virtuoso_connection.py   # expect: ✅ Virtuoso Connection: OK
-# Windows: ..\..\.venv\Scripts\python.exe scripts/check_virtuoso_connection.py
+# Run from project root:
+.venv/bin/python .claude/skills/io-ring-orchestrator-T28/scripts/check_virtuoso_connection.py
+# Windows: .venv\Scripts\python.exe .claude\skills\io-ring-orchestrator-T28\scripts\check_virtuoso_connection.py
 ```
 
 **Auto-activate `.venv`:** Set VS Code to use `.venv` as the interpreter, or add
@@ -413,7 +417,7 @@ virtuoso-bridge init <username>@<eda-server>
 # virtuoso-bridge init <username>@<eda-server> -J <username>@<jump-host>
 ```
 
-This writes `~/.virtuoso-bridge/.env` (or project-root `.env`) with all bridge variables
+This writes `~/.virtuoso-bridge/.env` with all bridge variables
 (`VB_REMOTE_HOST`, `VB_REMOTE_USER`, ports, jump host, etc.) in the correct format.
 **Do not** write the bridge `.env` manually — always use `virtuoso-bridge init`.
 
@@ -480,7 +484,10 @@ load("/tmp/virtuoso_bridge_<user>/virtuoso_bridge/virtuoso_setup.il")
 
 Verify end-to-end:
 ```bash
+# Linux/Mac/Git Bash:
 .venv/bin/python .claude/skills/io-ring-orchestrator-T28/scripts/check_virtuoso_connection.py
+# Windows PowerShell:
+# .venv\Scripts\python.exe .claude\skills\io-ring-orchestrator-T28\scripts\check_virtuoso_connection.py
 # Success: ✅ Virtuoso Connection: OK
 # Failure: follow printed instructions; run `virtuoso-bridge restart` if tunnel is down
 ```
