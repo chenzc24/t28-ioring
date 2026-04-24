@@ -90,6 +90,14 @@ else
   return 1
 fi
 echo "AMS_PYTHON=${AMS_PYTHON}"
+
+# Resolve Layout Editor mode from .env (default: off)
+if [ "${AMS_LAYOUT_EDITOR:-}" = "on" ]; then
+  echo "AMS_LAYOUT_EDITOR=on  (editor prompts enabled)"
+else
+  export AMS_LAYOUT_EDITOR="off"
+  echo "AMS_LAYOUT_EDITOR=off (editor skipped automatically)"
+fi
 ```
 
 **IMPORTANT:** All subsequent steps MUST use `$AMS_PYTHON` instead of `python3`.
@@ -217,7 +225,12 @@ Validation repair constraints:
 
 ### Step 6: Build Confirmed Config
 
-**Ask the user whether to open the Layout Editor before building.** Use `AskUserQuestion` with a **15-second timeout mindset** — if the user does not respond within a short window or says nothing, **default to skipping the editor** (proceed with auto-generated config).
+**Check `AMS_LAYOUT_EDITOR` env var to decide whether to prompt the user.**
+
+- If `AMS_LAYOUT_EDITOR=on`: Ask the user via `AskUserQuestion` whether to open the Layout Editor.
+- If `AMS_LAYOUT_EDITOR=off` (default): Skip the editor automatically — no question asked.
+
+#### If AMS_LAYOUT_EDITOR=on — Ask the user:
 
 Ask prompt:
 > The layout is ready for confirmation. Would you like to open the visual Layout Editor to review and adjust pad placement before proceeding?
@@ -227,9 +240,7 @@ Options presented to user:
 - **Open Layout Editor** — Launches a browser-based editor where you can drag pads, edit properties, and visually confirm the ring layout. Click "Confirm & Continue" when done.
 - **Skip Editor** — Build the confirmed config directly without manual review (recommended for automated/batch runs).
 
-**Default behavior on timeout or no response: skip the editor.**
-
-#### If user chooses "Open Layout Editor":
+**If user chooses "Open Layout Editor":**
 
 ```bash
 $AMS_PYTHON $SCRIPTS_PATH/build_confirmed_config.py \
@@ -244,7 +255,7 @@ This will:
 3. Wait for user to confirm (click "Confirm & Continue" button)
 4. Merge editor changes back into the confirmed config
 
-#### If user chooses "Skip Editor" (or timeout):
+**If user chooses "Skip Editor" (or AMS_LAYOUT_EDITOR=off):**
 
 ```bash
 $AMS_PYTHON $SCRIPTS_PATH/build_confirmed_config.py \
@@ -344,7 +355,7 @@ Provide structured summary:
 - [ ] Step 3: Final intent graph generated from draft and saved
 - [ ] Step 4: Reference-guided gate check passed
 - [ ] Step 5: Validation passed (exit 0)
-- [ ] Step 6: Confirmed config built (ask user: editor or skip; timeout → skip)
+- [ ] Step 6: Confirmed config built (AMS_LAYOUT_EDITOR=on → ask user; off → skip automatically)
 - [ ] Step 7: SKILL scripts generated
 - [ ] Step 8: Virtuoso connection verified before execution
 - [ ] Step 9: Scripts executed, screenshots saved
