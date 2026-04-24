@@ -10,10 +10,20 @@ from dotenv import load_dotenv
 
 
 def _find_project_root() -> str:
-    """Walk up from the skill root to find the project root (directory with .venv or .git)."""
+    """Walk up from the skill root to find the project root (directory with .venv or .git).
+
+    Skips the skill root itself (identified by SKILL.md) to avoid stopping prematurely
+    when the skill directory happens to be nested inside another project.
+    """
     start = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
     candidate = start
     for _ in range(20):  # safety limit
+        # Skip the skill root itself (contains SKILL.md)
+        if os.path.isfile(os.path.join(candidate, "SKILL.md")):
+            parent = os.path.dirname(candidate)
+            if parent != candidate:
+                candidate = parent
+                continue
         if os.path.isdir(os.path.join(candidate, ".venv")) or os.path.isdir(os.path.join(candidate, ".git")):
             return candidate
         parent = os.path.dirname(candidate)
@@ -363,7 +373,7 @@ def load_script_and_take_screenshot_verbose(
         remote_mode = _is_windows_path(str(local_save))
 
     if remote_mode:
-        remote_png = f"/tmp/vb_t28_calibre/screenshot_{local_save.name}"
+        remote_png = f"{_get_calibre_remote_base()}/screenshot_{local_save.name}"
     else:
         remote_png = str(local_save).replace("\\", "/")
 
@@ -408,7 +418,17 @@ def load_script_and_take_screenshot(screenshot_script_path: str, save_path: str,
 
 
 # ===================== Calibre csh execution =====================
-_CALIBRE_REMOTE_BASE = "/tmp/vb_t28_calibre"
+def _get_calibre_remote_base() -> str:
+    """User-scoped remote base to avoid /tmp permission collisions on shared EDA servers.
+
+    Appends ``_${VB_REMOTE_USER}`` so each SSH user gets an isolated directory
+    under /tmp.  Falls back to the un-suffixed path only when the username is
+    unavailable (should not happen in normal operation).
+    """
+    _load_vb_env()
+    user = os.environ.get("VB_REMOTE_USER", "").strip()
+    suffix = f"_{user}" if user else ""
+    return f"/tmp/vb_t28_calibre{suffix}"
 
 
 def _upload_calibre_tree(ssh, calibre_dir: Path, remote_base: str, timeout: int = 120) -> Optional[str]:
@@ -419,7 +439,6 @@ def _upload_calibre_tree(ssh, calibre_dir: Path, remote_base: str, timeout: int 
 
     Returns None on success, or an error string on failure.
     """
-    import tempfile
     import time as _time
     import tarfile, io
 
@@ -438,9 +457,12 @@ def _upload_calibre_tree(ssh, calibre_dir: Path, remote_base: str, timeout: int 
             tar.addfile(info, io.BytesIO(content))
 
     buf.seek(0)
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".tar.gz") as tmp:
-        tmp.write(buf.read())
-        tmp_path = Path(tmp.name)
+    # Stage in the project output directory instead of system %TEMP% to avoid
+    # Windows temp-file ACL issues, antivirus locks, and paths with spaces.
+    _staging = Path(os.environ.get("AMS_OUTPUT_ROOT", os.getcwd())) / ".calibre_staging"
+    _staging.mkdir(parents=True, exist_ok=True)
+    tmp_path = _staging / f"calibre_upload_{os.getpid()}.tar.gz"
+    tmp_path.write_bytes(buf.read())
 
     try:
         # upload_file() streams via `tar cf - <file> | ssh "tar xf - -C <dir>"`
@@ -601,14 +623,22 @@ def _download_calibre_output(ssh, remote_root: str, local_root: str, timeout: in
 
 
 def _read_env_raw(key: str) -> str:
-    """Read a variable directly from the project .env file without going through
-    os.environ.  Git bash on Windows converts Unix paths like /home/... to Windows
+    """Read a variable directly from a .env file without going through os.environ.
+
+    Git bash on Windows converts Unix paths like /home/... to Windows
     paths (C:\\Program Files\\Git\\home\\...) before Python sees them, which breaks
     remote Linux commands.  Parsing the .env file with dotenv_values() returns the
     raw string exactly as written.
+
+    Search order:
+      1. Walk up from cwd looking for a .env that has this key
+      2. Skill root .env (relative to this file)
+      3. ~/.virtuoso-bridge/.env
+      4. os.environ as last resort (correct when not launched from Git Bash)
     """
-    # Walk up from cwd looking for a .env that has this key
     from dotenv import dotenv_values
+
+    # 1. Walk up from cwd
     cwd = Path.cwd().resolve()
     for parent in [cwd, *cwd.parents]:
         candidate = parent / ".env"
@@ -620,7 +650,19 @@ def _read_env_raw(key: str) -> str:
             continue
         if key in vals:
             return (vals[key] or "").strip()
-    # Fallback: try home .virtuoso-bridge/.env
+
+    # 2. Skill root .env (relative to this file's location)
+    skill_root = Path(__file__).resolve().parent.parent.parent
+    skill_env = skill_root / ".env"
+    if skill_env.is_file():
+        try:
+            vals = dotenv_values(str(skill_env))
+            if key in vals:
+                return (vals[key] or "").strip()
+        except Exception:
+            pass
+
+    # 3. User-level fallback
     home_env = Path.home() / ".virtuoso-bridge" / ".env"
     if home_env.is_file():
         try:
@@ -629,7 +671,10 @@ def _read_env_raw(key: str) -> str:
                 return (vals[key] or "").strip()
         except Exception:
             pass
-    return ""
+
+    # 4. os.environ fallback (correct when Python is invoked directly, not via Git Bash)
+    env_val = os.environ.get(key, "").strip()
+    return env_val
 
 
 
@@ -658,15 +703,18 @@ def execute_csh_script(script_path: str, *args, timeout: int = 600) -> str:
         print(f"[execute_csh_script] SSH unavailable, falling back to local: {e}")
         return _run_local_csh(script_path, args, timeout)
 
+    # ── Resolve user-scoped remote base (avoids /tmp collision on shared servers) ─
+    remote_base = _get_calibre_remote_base()
+
     # ── Upload all calibre scripts as a single tarball ─────────────────────────
-    upload_err = _upload_calibre_tree(ssh, calibre_dir, _CALIBRE_REMOTE_BASE, timeout=120)
+    upload_err = _upload_calibre_tree(ssh, calibre_dir, remote_base, timeout=120)
     if upload_err:
         local = _run_local_csh(script_path, args, timeout)
         if not str(local).startswith("Local csh execution failed"):
             return local
         return f"Remote upload failed: {upload_err}; fallback local: {local}"
 
-    remote_script = f"{_CALIBRE_REMOTE_BASE}/{script.relative_to(calibre_dir).as_posix()}"
+    remote_script = f"{remote_base}/{script.relative_to(calibre_dir).as_posix()}"
     args_str = " ".join(shlex.quote(str(a)) for a in args)
     local_ams_root = os.environ.get("AMS_OUTPUT_ROOT", "").strip()
 
@@ -674,7 +722,7 @@ def execute_csh_script(script_path: str, *args, timeout: int = 600) -> str:
     cell_tag = _re.sub(r"[^A-Za-z0-9_.-]", "_", str(args[1]) if len(args) >= 2 else "run") or "run"
 
     if mode == "remote":
-        remote_ams_root = f"{_CALIBRE_REMOTE_BASE}/output_{cell_tag}"
+        remote_ams_root = f"{remote_base}/output_{cell_tag}"
         ssh.run_command(f"mkdir -p {shlex.quote(remote_ams_root)}/drc {shlex.quote(remote_ams_root)}/lvs", timeout=10)
         print(f"[execute_csh_script] fs_mode=remote  remote AMS_OUTPUT_ROOT={remote_ams_root}")
     else:
@@ -694,7 +742,7 @@ def execute_csh_script(script_path: str, *args, timeout: int = 600) -> str:
         env_parts.append(f"CDS_LIB_PATH_28={shlex.quote(cds_lib)}")
     env_prefix = " ".join(env_parts) + " " if env_parts else ""
 
-    log_file = f"{_CALIBRE_REMOTE_BASE}/{cell_tag}_run.log"
+    log_file = f"{remote_base}/{cell_tag}_run.log"
 
     # ── SSH direct path ────────────────────────────────────────────────────────
     # Use csh -f to skip .cshrc (avoid interference from user login scripts)
