@@ -7,7 +7,7 @@ Loads filler device names from process node configuration
 
 from typing import List, Optional
 from .voltage_domain import VoltageDomainHandler
-from .process_node_config import get_process_node_config
+from .process_config import get_process_node_config
 
 class FillerGenerator:
     """Filler Component Generator"""

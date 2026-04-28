@@ -14,8 +14,8 @@ from typing import List, Dict, Tuple, Optional
 from collections import defaultdict
 
 # Get config directory path
-# layout_visualizer.py is in assets/core/layout/
-# config files are in assets/device_info/
+# visualizer.py is in io_ring/layout/
+# config files are in io_ring/schematic/devices/
 _CONFIG_DIR = Path(__file__).parent.parent.parent / "device_info"
 
 def _load_28nm_config() -> Dict:
@@ -131,7 +131,7 @@ _layout_params = _28NM_CONFIG.get("layout_params", {})
 if not _layout_params:
     # Fallback to process_node_config defaults
     try:
-        from ..process_node_config import PROCESS_NODE_CONFIGS
+        from .process_config import PROCESS_NODE_CONFIGS
         _28nm_base_config = PROCESS_NODE_CONFIGS.get("T28", {})
         _layout_params = {
             "pad_width": _28nm_base_config.get("pad_width", 20),

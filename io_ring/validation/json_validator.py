@@ -22,7 +22,7 @@ def validate_config(config: Dict[str, Any]) -> bool:
     
     # Get process node (default to T28 for backward compatibility)
     # Normalize process node (e.g., "180nm" -> "T180")
-    from assets.core.layout.device_classifier import _normalize_process_node
+    from io_ring.layout.device_classifier import _normalize_process_node
     raw_process_node = ring_config.get('process_node', 'T28')
     try:
         process_node = _normalize_process_node(raw_process_node)
@@ -389,4 +389,49 @@ def get_config_statistics(config: Dict[str, Any]) -> Dict[str, Any]:
         'digital_ios': len(digital_ios),
         'input_ios': len(input_ios),
         'output_ios': len(output_ios)
-    } 
+    }
+
+
+def main():
+    """Main entry point for standalone CLI usage"""
+    import json
+    import sys
+    from pathlib import Path
+
+    if len(sys.argv) < 2:
+        print("Usage: python validate_intent.py <config_file_path>")
+        print("\nValidates T28 IO Ring intent graph JSON files.")
+        print("\nExit codes:")
+        print("  0 - Validation passed")
+        print("  1 - Validation failed")
+        print("  2 - File or JSON error")
+        sys.exit(2)
+
+    config_file_path = sys.argv[1]
+    config_path = Path(config_file_path)
+
+    # Check file exists
+    if not config_path.exists():
+        print(f"[ERROR] Error: File not found: {config_file_path}")
+        sys.exit(2)
+
+    # Load JSON
+    try:
+        with open(config_path, 'r', encoding='utf-8') as f:
+            config = json.load(f)
+    except json.JSONDecodeError as e:
+        print(f"[ERROR] Error: Invalid JSON format")
+        print(f"   {e}")
+        sys.exit(2)
+    except Exception as e:
+        print(f"[ERROR] Error: Failed to load file")
+        print(f"   {e}")
+        sys.exit(2)
+
+    # Validate
+    is_valid = validate_config(config)
+
+    if is_valid:
+        sys.exit(0)
+    else:
+        sys.exit(1) 

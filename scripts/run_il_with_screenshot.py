@@ -4,7 +4,7 @@
 Run IL with Screenshot - T28 Skill Script
 
 Executes SKILL (.il) file in Virtuoso and captures screenshot.
-Uses local imports from assets/.
+Uses local imports from io_ring/.
 
 Usage:
     python run_il_with_screenshot.py <il_file> <lib> <cell> [screenshot_path] [view]
@@ -22,30 +22,11 @@ from datetime import datetime
 from pathlib import Path
 from time import sleep
 
-# Add assets to path for local imports
+# Add io_ring to path for local imports
 skill_dir = Path(__file__).parent.parent.resolve()
 sys.path.insert(0, str(skill_dir))
 
-
-def _resolve_output_root() -> Path:
-    """Resolve unified output root for generated reports/artifacts.
-
-    Priority:
-    1) AMS_OUTPUT_ROOT env var (explicit override)
-    2) AMS_IO_AGENT_PATH/output (workspace root hint)
-    3) Current working directory output
-    4) Legacy skill-relative output
-    """
-    env_root = os.environ.get("AMS_OUTPUT_ROOT", "").strip()
-    if env_root:
-        return Path(env_root).expanduser().resolve(strict=False)
-
-    agent_root = os.environ.get("AMS_IO_AGENT_PATH", "").strip()
-    if agent_root:
-        return (Path(agent_root).expanduser().resolve(strict=False) / "output")
-
-    cwd_output = Path(os.getcwd()) / "output"
-    return cwd_output.resolve(strict=False)
+from io_ring.config import resolve_output_root
 
 
 def _verify_cellview(lib: str, cell: str, view: str) -> bool:
@@ -54,7 +35,7 @@ def _verify_cellview(lib: str, cell: str, view: str) -> bool:
     Returns True if cv points to the correct cellView, False otherwise.
     This prevents loading .il scripts into the wrong cell and polluting existing work.
     """
-    from assets.utils.bridge_utils import rb_exec
+    from io_ring.bridge import rb_exec
 
     actual_lib = rb_exec('cv~>libName', timeout=10).strip().strip('"')
     actual_cell = rb_exec('cv~>cellName', timeout=10).strip().strip('"')
@@ -75,7 +56,7 @@ def run_il_file(il_file_path: str, lib: str, cell: str, view: str = "layout", sa
     Includes cellView verification before every load attempt to prevent writing
     into the wrong cell and polluting existing work.
     """
-    from assets.utils.bridge_utils import (
+    from io_ring.bridge import (
         open_cell_view_by_type,
         ge_open_window,
         ui_redraw,
@@ -89,7 +70,7 @@ def run_il_file(il_file_path: str, lib: str, cell: str, view: str = "layout", sa
 
     skill_path = Path(il_file_path)
     if not skill_path.exists():
-        candidate = _resolve_output_root() / skill_path.name
+        candidate = resolve_output_root() / skill_path.name
         if candidate.exists():
             skill_path = candidate
         else:
@@ -159,7 +140,7 @@ def run_il_file(il_file_path: str, lib: str, cell: str, view: str = "layout", sa
 
 
 def main():
-    from assets.utils.bridge_utils import (
+    from io_ring.bridge import (
         check_bridge_installed,
         ui_redraw,
         ui_zoom_absolute_scale,
@@ -215,7 +196,7 @@ def main():
         save_path_obj.parent.mkdir(parents=True, exist_ok=True)
         save_path = str(save_path_obj)
     else:
-        save_dir = _resolve_output_root() / "screenshots"
+        save_dir = resolve_output_root() / "screenshots"
         save_dir.mkdir(parents=True, exist_ok=True)
         stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         save_path = str((save_dir / f"virtuoso_{Path(il_file_path).stem}_{stamp}.png").resolve())
@@ -256,12 +237,12 @@ def main():
             save_path_obj.parent.mkdir(parents=True, exist_ok=True)
             save_path = str(save_path_obj)
         else:
-            save_dir = _resolve_output_root() / "screenshots"
+            save_dir = resolve_output_root() / "screenshots"
             save_dir.mkdir(parents=True, exist_ok=True)
             stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             save_path = str((save_dir / f"virtuoso_{Path(il_file_path).stem}_{stamp}.png").resolve())
 
-        screenshot_script = str((skill_dir / "assets" / "skill_code" / "screenshot.il").resolve(strict=False))
+        screenshot_script = str((skill_dir / "skill_code" / "screenshot.il").resolve(strict=False))
         if load_script_and_take_screenshot(screenshot_script, save_path, timeout=20):
             result_dict["status"] = "success"
             result_dict["message"] = run_result

@@ -13,8 +13,8 @@ from typing import Dict, Any, Optional, Tuple
 
 
 # Import device template parser from the correct location
-from assets.device_info.IO_device_info_T28_parser import DeviceTemplate, DeviceTemplateManager
-from assets.core.intent_graph.json_validator import validate_config, convert_config_to_list, get_config_statistics
+from io_ring.schematic.device_parser import DeviceTemplate, DeviceTemplateManager
+from io_ring.validation.json_validator import validate_config, convert_config_to_list, get_config_statistics
 
 class SchematicGenerator:
     def __init__(self, template_manager):

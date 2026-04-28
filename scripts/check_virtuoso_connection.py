@@ -26,7 +26,7 @@ try:
 except (AttributeError, OSError):
     pass
 
-# Add assets to path for local imports
+# Add io_ring to path for local imports
 skill_dir = Path(__file__).parent.parent.resolve()
 sys.path.insert(0, str(skill_dir))
 
@@ -37,7 +37,7 @@ def check_via_virtuoso_bridge() -> tuple[bool, list]:
     Returns:
         (success, report_lines) tuple
     """
-    from assets.utils.bridge_utils import _load_vb_env
+    from io_ring.bridge import _load_vb_env
 
     report = []
     report.append("Bridge Type: virtuoso-bridge-lite")
@@ -97,7 +97,7 @@ def check_via_virtuoso_bridge() -> tuple[bool, list]:
 def _resolve_vb_env_source() -> tuple[str, str]:
     """Return (label, path) of the .env file _load_vb_env() will use, or
     ('none', '') if no VB config is found anywhere."""
-    from assets.utils.bridge_utils import _load_vb_env as _check_env
+    from io_ring.bridge import _load_vb_env as _check_env
 
     explicit = os.getenv("VB_ENV_FILE", "").strip()
     if explicit:

@@ -4,7 +4,7 @@
 Layout Generator Factory - Creates process node-specific generators
 """
 
-from .layout_generator import LayoutGeneratorT28, generate_layout_from_json as generate_T28
+from .generator import LayoutGeneratorT28, generate_layout_from_json as generate_T28
 
 
 def create_layout_generator(process_node: str = "T28"):

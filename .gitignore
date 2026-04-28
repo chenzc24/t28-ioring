@@ -4,4 +4,4 @@ __pycache__/
 *.pyo
 
 # User-specific site overrides (rarely needed)
-assets/external_scripts/calibre/site_local.csh
+calibre/site_local.csh

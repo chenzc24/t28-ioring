@@ -26,7 +26,7 @@ communication (TCP + SSH). The project layout after setup:
 └── .claude/skills/
     └── io-ring-orchestrator-T28/
         ├── .env                    ← T28 skill config (CDS_LIB_PATH_28, VB_FS_MODE)
-        └── assets/external_scripts/calibre/
+        └── calibre/
             └── site_local.csh      ← Calibre/PDK paths on the EDA server (you fill this in)
 ```
 
@@ -117,7 +117,7 @@ Edit `.claude/skills/io-ring-orchestrator-T28/.env` — the fields marked `# ←
 
 **4. Configure `site_local.csh`** (Calibre/PDK paths on the EDA server):
 ```bash
-cd .claude/skills/io-ring-orchestrator-T28/assets/external_scripts/calibre
+cd .claude/skills/io-ring-orchestrator-T28/calibre
 cp site_local.csh.example site_local.csh   # then edit with your site paths
 ```
 
@@ -443,8 +443,8 @@ pre-filled with defaults — use the Edit tool to update only the `CDS_LIB_PATH_
 ### Step 4 — Write `site_local.csh` ❓ → 🤖
 
 ```bash
-cp .claude/skills/io-ring-orchestrator-T28/assets/external_scripts/calibre/site_local.csh.example \
-   .claude/skills/io-ring-orchestrator-T28/assets/external_scripts/calibre/site_local.csh
+cp .claude/skills/io-ring-orchestrator-T28/calibre/site_local.csh.example \
+   .claude/skills/io-ring-orchestrator-T28/calibre/site_local.csh
 ```
 
 **Ask user — required:**

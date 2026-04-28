@@ -70,7 +70,7 @@ def _prepare_t28_components(
         ring_config = {}
     ring_config["process_node"] = "T28"
 
-    from .layout_generator import LayoutGeneratorT28
+    from .generator import LayoutGeneratorT28
 
     generator = LayoutGeneratorT28()
 
@@ -207,8 +207,8 @@ def run_t28_editor_confirmation_pipeline(
 
     # GUI mode: export intermediate JSON and wait for user confirmation
     try:
-        from .editor_utils import export_to_editor_json
-        from .layout_visualizer import DEVICE_COLORS as VISUAL_COLORS
+        from io_ring.editor.utils import export_to_editor_json
+        from .visualizer import DEVICE_COLORS as VISUAL_COLORS
 
         json_path = Path(json_file)
         if editor_output_path:
@@ -237,7 +237,7 @@ def run_t28_editor_confirmation_pipeline(
         # GUI mode: launch the standalone browser editor and wait for confirmation
         print(f"[>>] Launching browser-based Layout Editor...")
         try:
-            from ...layout_editor.layout_editor_launcher import launch_layout_editor
+            from io_ring.editor.launcher import launch_layout_editor
             launch_layout_editor(
                 intermediate_json=str(editor_path),
                 confirmed_json=str(confirmed_path),
@@ -246,7 +246,7 @@ def run_t28_editor_confirmation_pipeline(
             # Fallback: invoke as subprocess if relative import fails
             import subprocess
             import sys
-            launcher_script = Path(__file__).parent.parent.parent / "layout_editor" / "layout_editor_launcher.py"
+            launcher_script = Path(__file__).parent.parent / "editor" / "launcher.py"
             print(f"   (Using subprocess launcher: {launcher_script})")
             proc = subprocess.run(
                 [sys.executable, str(launcher_script), str(editor_path), str(confirmed_path)],
@@ -417,10 +417,10 @@ def build_draft_editor_session(
 
     # Build intermediate JSON using the draft-aware exporter
     try:
-        from .editor_utils import draft_to_editor_json
-        from .layout_visualizer import DEVICE_COLORS as VISUAL_COLORS
+        from io_ring.editor.utils import draft_to_editor_json
+        from .visualizer import DEVICE_COLORS as VISUAL_COLORS
     except ImportError:
-        from .editor_utils import draft_to_editor_json
+        from io_ring.editor.utils import draft_to_editor_json
         VISUAL_COLORS = {}
 
     print(f"[draft_editor] Building draft editor JSON from {len(instances)} instances...")
@@ -448,7 +448,7 @@ def build_draft_editor_session(
     # Launch editor in draft mode
     print(f"[draft_editor] Launching browser-based Draft Editor...")
     try:
-        from ...layout_editor.layout_editor_launcher import launch_layout_editor
+        from io_ring.editor.launcher import launch_layout_editor
         launch_layout_editor(
             intermediate_json=str(exported_path),
             confirmed_json=str(confirmed_path),
@@ -457,7 +457,7 @@ def build_draft_editor_session(
     except ImportError:
         import subprocess
         import sys
-        launcher_script = Path(__file__).parent.parent.parent / "layout_editor" / "layout_editor_launcher.py"
+        launcher_script = Path(__file__).parent.parent / "editor" / "launcher.py"
         print(f"   (Using subprocess launcher: {launcher_script})")
         proc = subprocess.run(
             [sys.executable, str(launcher_script), str(exported_path), str(confirmed_path), "--mode", "draft"],

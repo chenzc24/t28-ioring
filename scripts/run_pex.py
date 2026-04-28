@@ -4,7 +4,7 @@
 Run PEX - T28 Skill Script
 
 Runs Parasitic Extraction (PEX) on Virtuoso cell.
-Uses local imports from assets/.
+Uses local imports from io_ring/.
 
 Usage:
     python run_pex.py [lib] [cell] [view] [runDir]
@@ -22,64 +22,17 @@ from pathlib import Path
 import shutil
 import time
 
-# Add assets to path for local imports
+# Add io_ring to path for local imports
 skill_dir = Path(__file__).parent.parent.resolve()
 sys.path.insert(0, str(skill_dir))
 
-
-def _resolve_output_root() -> Path:
-    """Resolve unified output root for generated reports/artifacts.
-
-    Priority:
-    1) AMS_OUTPUT_ROOT env var (explicit override)
-    2) AMS_IO_AGENT_PATH/output (workspace root hint)
-    3) Current working directory output
-    4) Legacy skill-relative output
-    """
-    env_root = os.environ.get("AMS_OUTPUT_ROOT", "").strip()
-    if env_root:
-        return Path(env_root).expanduser().resolve(strict=False)
-
-    agent_root = os.environ.get("AMS_IO_AGENT_PATH", "").strip()
-    if agent_root:
-        return (Path(agent_root).expanduser().resolve(strict=False) / "output")
-
-    cwd_output = Path(os.getcwd()) / "output"
-    return cwd_output.resolve(strict=False)
-
-
-def parse_pex_capacitance(netlist_file: Path) -> str:
-    """
-    Directly extract all content between mgc_rve_cell_start and mgc_rve_cell_end in PEX netlist file, output as-is.
-    """
-    if not netlist_file.exists():
-        return "PEX netlist file not found, unable to extract content."
-    try:
-        with open(netlist_file, 'r', encoding='utf-8', errors='replace') as f:
-            lines = f.readlines()
-        in_cell = False
-        cell_content = []
-        for line in lines:
-            if line.startswith('mgc_rve_cell_start'):
-                in_cell = True
-                cell_content.append(line)
-                continue
-            if line.startswith('mgc_rve_cell_end'):
-                cell_content.append(line)
-                in_cell = False
-                break  # Only extract the first cell block
-            if in_cell:
-                cell_content.append(line)
-        if not cell_content:
-            return "No content found between mgc_rve_cell_start and mgc_rve_cell_end in PEX netlist."
-        return "\nPEX main cell original content excerpt:\n" + ''.join(cell_content)
-    except Exception as e:
-        return f"Failed to extract PEX netlist content: {e}"
+from io_ring.config import resolve_output_root
 
 
 def main():
-    from assets.core.layout.device_classifier import _normalize_process_node
-    from assets.utils.bridge_utils import (
+    from io_ring.layout.device_classifier import _normalize_process_node
+    from io_ring.verification.pex import parse_pex_capacitance
+    from io_ring.bridge import (
         check_bridge_installed,
         open_cell_view_by_type,
         ui_redraw,
@@ -95,7 +48,7 @@ def main():
 
     # Set output root
     os.environ.setdefault("AMS_OUTPUT_ROOT", str((Path(os.getcwd()) / "output").resolve(strict=False)))
-    output_root = _resolve_output_root()
+    output_root = resolve_output_root()
 
     # Parse arguments
     # Optional: lib, cell, view, runDir
@@ -122,12 +75,12 @@ def main():
         print(f"   Output Root: {output_root}")
 
         node = _normalize_process_node(tech_node)
-        script_path = skill_dir / "assets" / "external_scripts" / "calibre" / "run_pex.csh"
+        script_path = skill_dir / "calibre" / "run_pex.csh"
 
         if not script_path.exists():
             print(f"[ERROR] Error: PEX script file not found")
             print(f"   Expected path: {script_path}")
-            print(f"   Script location: assets/external_scripts/calibre/run_pex.csh")
+            print(f"   Script location: calibre/run_pex.csh")
             raise FileNotFoundError(f"PEX script file not found: {script_path}")
 
         script_path.chmod(0o755)

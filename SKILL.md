@@ -337,46 +337,69 @@ io-ring-orchestrator-T28/
 │   ├── intent_graph_template.json
 │   └── image_vision_instruction.md
 │
-└── assets/                           # Bundled code (self-contained)
-    ├── core/
-    │   ├── layout/                     # Layout generation modules
-    │   │   ├── enrichment_engine.py      # Step 3 engine (semantic intent → full intent graph)
-    │   │   ├── layout_generator.py       # T28 layout generator
-    │   │   ├── confirmed_config_builder.py # build_confirmed_config + build_draft_editor_session
-    │   │   ├── skill_generator.py
-    │   │   ├── auto_filler.py
-    │   │   ├── layout_visualizer.py
-    │   │   ├── inner_pad_handler.py
-    │   │   ├── device_classifier.py
-    │   │   ├── position_calculator.py
-    │   │   ├── process_node_config.py
-    │   │   ├── layout_generator_factory.py
-    │   │   ├── filler_generator.py
-    │   │   ├── layout_validator.py
-    │   │   ├── voltage_domain.py
-    │   │   ├── editor_confirm_merge.py
-    │   │   └── editor_utils.py           # export_to_editor_json + draft_to_editor_json
-    │   ├── schematic/
-    │   │   ├── schematic_generator_T28.py
-    │   │   └── devices/IO_device_info_T28_parser.py
-    │   └── intent_graph/json_validator.py
+└── io_ring/                          # Python package (was assets/)
+    ├── config.py                     # Shared: resolve_output_root, resolve_confirmed_config_path
+    ├── visualization.py              # Layout visualization utilities
     │
-    ├── layout_editor/                # Browser-based editor
-    │   ├── layout_editor.html          # Single-file React editor (draft + confirmation modes)
-    │   ├── layout_editor_launcher.py   # HTTP server + browser launcher (--mode draft|confirmation)
-    │   └── vendor/                     # React/ReactDOM (served locally)
+    ├── validation/                   # (was core/intent_graph/)
+    │   └── json_validator.py           # Single source of truth for validation
     │
-    ├── utils/                        # bridge_utils.py (Virtuoso bridge), logging_utils.py, visualization.py, banner.py
+    ├── layout/                       # (was core/layout/, flatter names)
+    │   ├── generator.py                # (was layout_generator.py)
+    │   ├── skill_generator.py
+    │   ├── confirmed_config.py         # (was confirmed_config_builder.py)
+    │   ├── enrichment_engine.py        # Step 3 engine (semantic intent → full intent graph)
+    │   ├── auto_filler.py
+    │   ├── filler_generator.py
+    │   ├── device_classifier.py
+    │   ├── position_calculator.py
+    │   ├── voltage_domain.py
+    │   ├── inner_pad_handler.py
+    │   ├── validator.py                # (was layout_validator.py)
+    │   ├── process_config.py           # (was process_node_config.py)
+    │   ├── visualizer.py               # (was layout_visualizer.py)
+    │   ├── layout_generator_factory.py
+    │   └── config/lydevices_28.json
     │
-    ├── skill_code/                   # Virtuoso .il files
-    │   ├── screenshot.il
-    │   ├── get_cellview_info.il
-    │   ├── helper_based_device_T28.il
-    │   ├── create_io_ring_lib_full.il
-    │   └── create_schematic_cv.il
+    ├── schematic/                    # (was core/schematic/ + device_info/)
+    │   ├── generator.py                # (was schematic_generator_T28.py)
+    │   ├── device_parser.py            # (was IO_device_info_T28_parser.py)
+    │   └── devices/
+    │       ├── IO_device_info_T28.json
+    │       └── device_wiring_T28.json
     │
-    ├── device_info/                  # IO_device_info_T28.json + IO_device_info_T28_parser.py + device_wiring_T28.json (engine wiring table)
+    ├── editor/                       # (was layout_editor/ + editor_*.py from layout/)
+    │   ├── launcher.py                 # (was layout_editor_launcher.py)
+    │   ├── confirm_merge.py            # (was editor_confirm_merge.py)
+    │   ├── utils.py                    # (was editor_utils.py)
+    │   ├── draft_editor.html           # (was layout_editor.html)
+    │   ├── confirmation_editor.html
+    │   └── vendor/
     │
-    └── external_scripts/calibre/     # run_drc.csh, run_lvs.csh, run_pex.csh, T28/
+    ├── bridge/                       # (was utils/bridge_utils.py, split)
+    │   ├── client.py                   # VirtuosoClient wrapper fns
+    │   ├── ssh.py                      # SSH/upload/download/csh execution
+    │   └── check.py                    # Connection check + env loading
+    │
+    └── verification/                 # (was inline in scripts)
+        ├── drc.py
+        ├── lvs.py
+        ├── pex.py
+        └── report.py
+
+├── skill_code/                       # (was assets/skill_code/, top-level)
+│   ├── create_io_ring_lib_full.il
+│   ├── create_schematic_cv.il
+│   ├── get_cellview_info.il
+│   ├── helper_based_device_T28.il
+│   └── screenshot.il
+│
+├── calibre/                          # (was assets/external_scripts/calibre/, top-level)
+│   ├── env_common.csh
+│   ├── run_drc.csh
+│   ├── run_lvs.csh
+│   ├── run_pex.csh
+│   ├── site_local.csh.example
+│   └── T28/
 # Virtuoso TCP bridge + SSH transfer: virtuoso-bridge-lite (installed separately; see README.md Prerequisites).
 ```

@@ -9,7 +9,7 @@ from .device_classifier import DeviceClassifier
 from .voltage_domain import VoltageDomainHandler
 from .inner_pad_handler import InnerPadHandler
 from .position_calculator import PositionCalculator
-from .process_node_config import get_process_node_config
+from .process_config import get_process_node_config
 
 class SkillGeneratorT28:
     """SKILL Script Generator for T28 process node"""

@@ -26,7 +26,7 @@ sys.path.insert(0, str(skill_dir))
 
 
 def main():
-    from assets.core.layout.enrichment_engine import (
+    from io_ring.layout.enrichment_engine import (
         enrich,
         EngineError,
         InputError,
@@ -57,7 +57,7 @@ def main():
         print(f"[ERROR] Only T28 supported in this engine version (got: {tech_node})")
         sys.exit(2)
 
-    wiring_path = skill_dir / "assets" / "device_info" / "device_wiring_T28.json"
+    wiring_path = skill_dir / "io_ring" / "schematic" / "devices" / "device_wiring_T28.json"
 
     print(f"[>>] Enriching semantic intent...")
     print(f"   Input:    {semantic_path}")

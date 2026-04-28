@@ -35,7 +35,7 @@ def make_handler(html_path, intermediate_path, confirmed_path, confirmation_even
     # Select the correct HTML file based on mode
     html_dir = Path(html_path).parent
     if editor_mode == 'draft':
-        resolved_html = html_dir / 'layout_editor.html'
+        resolved_html = html_dir / 'draft_editor.html'
     else:
         resolved_html = html_dir / 'confirmation_editor.html'
 
@@ -136,10 +136,10 @@ def launch_layout_editor(intermediate_json: str, confirmed_json: str, port: int 
     Returns the path to the confirmed JSON file.
     """
     # Select HTML file based on mode
-    html_name = 'layout_editor.html' if mode == 'draft' else 'confirmation_editor.html'
+    html_name = 'draft_editor.html' if mode == 'draft' else 'confirmation_editor.html'
     html_path = Path(__file__).parent / html_name
     if not html_path.exists():
-        raise FileNotFoundError(f"layout_editor.html not found at {html_path}")
+        raise FileNotFoundError(f"draft_editor.html not found at {html_path}")
     if not Path(intermediate_json).exists():
         raise FileNotFoundError(f"Intermediate JSON not found: {intermediate_json}")
 

@@ -129,7 +129,7 @@ def load_wiring_table(path: Path) -> Dict[str, Any]:
     if not path.exists():
         raise WiringError(
             f"Wiring table not found: {path}",
-            hint="Ensure assets/device_info/device_wiring_T28.json exists.",
+            hint="Ensure io_ring/schematic/devices/device_wiring_T28.json exists.",
         )
     try:
         with open(path, "r", encoding="utf-8") as f:

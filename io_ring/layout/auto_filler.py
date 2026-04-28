@@ -10,7 +10,7 @@ from .voltage_domain import VoltageDomainHandler
 from .filler_generator import FillerGenerator
 from .position_calculator import PositionCalculator
 from .inner_pad_handler import InnerPadHandler
-from .process_node_config import get_process_node_config
+from .process_config import get_process_node_config
 
 
 class AutoFillerGeneratorT28:
