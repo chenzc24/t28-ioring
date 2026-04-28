@@ -17,7 +17,12 @@ class PositionCalculator:
         """Calculate chip size based on layout components"""
         # Check if ring_config information exists
         if hasattr(self, 'current_ring_config') and self.current_ring_config:
-            # Use ring_config for calculation
+            # Prefer explicit chip_width/chip_height from editor (e.g. after filler addition)
+            explicit_w = self.current_ring_config.get("chip_width")
+            explicit_h = self.current_ring_config.get("chip_height")
+            if explicit_w is not None and explicit_h is not None:
+                return explicit_w, explicit_h
+            # Fallback: compute from width/height/pad_spacing/corner_size
             width = self.current_ring_config.get("width", 3)
             height = self.current_ring_config.get("height", 3)
             pad_spacing = self.current_ring_config.get("pad_spacing", 60)
