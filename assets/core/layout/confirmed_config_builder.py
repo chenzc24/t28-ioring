@@ -271,6 +271,9 @@ def run_t28_editor_confirmation_pipeline(
             if hasattr(generator, "config"):
                 generator.config.update(idx_data["ring_config"])
                 generator.config["process_node"] = "T28"
+                # Propagate editor chip dimensions to position calculator immediately
+                if hasattr(generator, "position_calculator"):
+                    generator.position_calculator.current_ring_config = dict(generator.config)
 
         incoming_components = None
         if "layout_data" in idx_data:

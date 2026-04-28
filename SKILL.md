@@ -80,7 +80,11 @@ elif command -v python  &>/dev/null;                    then export AMS_PYTHON="
 else echo "ERROR: No Python 3.9+ found. Create .venv at project root."; return 1; fi
 echo "AMS_PYTHON=${AMS_PYTHON}"
 
-# Editor modes (default off)
+# Load .env into shell environment (skill .env, then project .env; later does NOT override earlier)
+if [ -f "${SKILL_ROOT}/.env" ]; then set -a; . "${SKILL_ROOT}/.env"; set +a; fi
+if [ -f "${PROJECT_ROOT}/.env" ]; then set -a; . "${PROJECT_ROOT}/.env"; set +a; fi
+
+# Editor modes (default off if not set by .env)
 [ "${AMS_DRAFT_EDITOR:-}"  = "on" ] || export AMS_DRAFT_EDITOR="off"
 [ "${AMS_LAYOUT_EDITOR:-}" = "on" ] || export AMS_LAYOUT_EDITOR="off"
 echo "AMS_DRAFT_EDITOR=${AMS_DRAFT_EDITOR}  AMS_LAYOUT_EDITOR=${AMS_LAYOUT_EDITOR}"
