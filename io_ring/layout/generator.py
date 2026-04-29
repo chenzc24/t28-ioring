@@ -254,18 +254,22 @@ class LayoutGeneratorT28:
                 "position": position,
                 "orientation": orientation,
             }
-            
+
             if relative_pos:
                 component["position_str"] = relative_pos
-            
+
             if direction:
                 component["direction"] = direction
-            
+
             if voltage_domain:
                 component["voltage_domain"] = voltage_domain
             if pin_connection:
                 component["pin_connection"] = pin_connection
-            
+
+            domain = instance.get("domain", "")
+            if domain:
+                component["domain"] = domain
+
             converted_components.append(component)
         
         # Check corners

@@ -198,6 +198,7 @@ class InnerPadHandler:
                     "name": pad["name"],
                     "device": pad["device"],
                     "direction": pad.get("direction", "unknown"),
+                    "domain": pad.get("domain", ""),
                     "is_inner": False
                 })
 
@@ -215,6 +216,7 @@ class InnerPadHandler:
                     "name": inner_pad["name"],
                     "device": inner_pad["device"],
                     "direction": inner_pad.get("direction", "unknown"),
+                    "domain": inner_pad.get("domain", ""),
                     "is_inner": True
                 })
 

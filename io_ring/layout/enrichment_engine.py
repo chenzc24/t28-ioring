@@ -235,7 +235,7 @@ class ResolutionContext:
                 return esd
             return self.globals.get("vss_ground", "GIOL")
         if label_from == "const.POC":
-            return "POC"
+            return f"POC_{self.domain_id}" if self.domain_id else "POC"
         if label_from == "const.noConn":
             return "noConn"
         if label_from.startswith("domain."):
@@ -412,7 +412,15 @@ def expand_instance(instance: Dict[str, Any], wiring: Dict[str, Any],
 
     pin_connection: "OrderedDict[str, Dict[str, str]]" = OrderedDict()
 
-    for pin_name, pin_spec in device_spec["pins"].items():
+    # Collect all pin specs to process: main pins + emittable io_direction_rules pins
+    all_pin_specs: "OrderedDict[str, Dict]" = OrderedDict(device_spec["pins"])
+    direction_val = instance.get("direction")
+    if "io_direction_rules" in device_spec and direction_val:
+        for pin_name, pin_spec in device_spec["io_direction_rules"].get(direction_val, {}).items():
+            if isinstance(pin_spec, dict) and pin_spec.get("emit", False) and pin_name not in all_pin_specs:
+                all_pin_specs[pin_name] = pin_spec
+
+    for pin_name, pin_spec in all_pin_specs.items():
         if not pin_spec.get("emit", True):
             continue
         # Override?
@@ -433,6 +441,8 @@ def expand_instance(instance: Dict[str, Any], wiring: Dict[str, Any],
     out["device"] = full_device
     if device_base in digital_io_list:
         out["direction"] = instance["direction"]
+    if instance.get("domain"):
+        out["domain"] = instance["domain"]
     out["pin_connection"] = pin_connection
 
     return out
@@ -599,27 +609,28 @@ def run_gates(intent_graph: Dict[str, Any], semantic: Dict[str, Any],
         raise GateError(f"G2: Corner count is {len(corners)}, expected 4")
     results["G2_corners"] = {"pass": True}
 
-    # G3: Digital provider count = 4 unique names IF design has digital domain
+    # G3: Digital provider count — each digital domain must have exactly 4 unique provider names.
+    # Multi-quadrant rings with independent digital rails per quadrant have multiple digital domains;
+    # the check is therefore per-domain, not global.
     digital_domains = {
         d_id: d for d_id, d in semantic.get("domains", {}).items()
         if d.get("kind") == "digital"
     }
     if digital_domains:
-        provider_names = set()
-        for d in digital_domains.values():
-            for k in ("low_vdd", "low_vss", "high_vdd", "high_vss"):
-                if k in d:
-                    provider_names.add(d[k])
-        if len(provider_names) != 4:
-            raise GateError(
-                f"G3: Digital provider count is {len(provider_names)}, expected exactly 4 unique names",
-                detail=f"providers found = {sorted(provider_names)}",
-                hint="Each digital domain needs exactly 4 unique provider names "
-                     "(low_vdd, low_vss, high_vdd, high_vss). If extras appear, "
-                     "they likely belong to analog domains — re-classify them.",
-                section="§5.3 (Step 2.2 Digital provider count rule)",
-            )
-        results["G3_digital_provider_count"] = {"pass": True, "providers": sorted(provider_names)}
+        g3_domain_results = {}
+        for d_id, d in digital_domains.items():
+            domain_providers = {d[k] for k in ("low_vdd", "low_vss", "high_vdd", "high_vss") if k in d}
+            if len(domain_providers) != 4:
+                raise GateError(
+                    f"G3: Digital domain '{d_id}' has {len(domain_providers)} unique provider names, expected 4",
+                    detail=f"providers in '{d_id}' = {sorted(domain_providers)}",
+                    hint="Each digital domain needs exactly 4 unique provider names "
+                         "(low_vdd, low_vss, high_vdd, high_vss). If extras appear, "
+                         "they likely belong to analog domains — re-classify them.",
+                    section="§5.3 (Step 2.2 Digital provider count rule)",
+                )
+            g3_domain_results[d_id] = sorted(domain_providers)
+        results["G3_digital_provider_count"] = {"pass": True, "per_domain": g3_domain_results}
     else:
         results["G3_digital_provider_count"] = {"pass": True, "skipped": "no digital domain"}
 
