@@ -1,4 +1,4 @@
-# io-ring-orchestrator-T28
+# t28-ioring
 
 > **AI Agent:** Skip to [Agent Setup Guide](#-agent-setup-guide) below for
 > executable installation steps with concrete commands and ask/write tables.
@@ -16,7 +16,7 @@ construction, Cadence SKILL generation, Virtuoso execution, and DRC/LVS/PEX.
 
 ## Overview
 
-`io-ring-orchestrator-T28` depends on **virtuoso-bridge-lite** for all Virtuoso
+`t28-ioring` depends on **virtuoso-bridge-lite** for all Virtuoso
 communication (TCP + SSH). The project layout after setup:
 
 ```
@@ -24,7 +24,7 @@ communication (TCP + SSH). The project layout after setup:
 ├── .venv/                          ← one shared Python env (bridge + all skills)
 ├── virtuoso-bridge-lite/           ← bridge source
 └── .claude/skills/
-    └── io-ring-orchestrator-T28/
+    └── t28-ioring/
         ├── .env                    ← T28 skill config (CDS_LIB_PATH_28, VB_FS_MODE)
         └── calibre/
             └── site_local.csh      ← Calibre/PDK paths on the EDA server (you fill this in)
@@ -81,7 +81,7 @@ Auto-detected: Windows path (`C:\...`) → `remote`; NFS probe → `shared`. Set
 # At your project root:
 git clone https://github.com/chenzc24/virtuoso-bridge-lite.git
 mkdir -p .claude/skills
-git clone https://github.com/chenzc24/io-ring-orchestrator-T28.git .claude/skills/io-ring-orchestrator-T28
+git clone https://github.com/chenzc24/t28-ioring.git .claude/skills/t28-ioring
 ```
 ```bash
 # Create venv and install (Linux/Mac/Git Bash):
@@ -89,7 +89,7 @@ python -m venv .venv && source .venv/bin/activate
 # Windows PowerShell:  python -m venv .venv; .venv\Scripts\Activate.ps1
 
 pip install -e virtuoso-bridge-lite
-pip install -r .claude/skills/io-ring-orchestrator-T28/requirements.txt
+pip install -r .claude/skills/t28-ioring/requirements.txt
 ```
 
 **2. Configure bridge connection:**
@@ -108,7 +108,7 @@ virtuoso-bridge init <username>@<eda-server>    # creates ~/.virtuoso-bridge/.en
 
 **3. Configure T28 skill `.env`:**
 
-Edit `.claude/skills/io-ring-orchestrator-T28/.env` — the fields marked `# ← CHANGE`:
+Edit `.claude/skills/t28-ioring/.env` — the fields marked `# ← CHANGE`:
 
 | Variable | Required | What to set |
 |---|---|---|
@@ -117,7 +117,7 @@ Edit `.claude/skills/io-ring-orchestrator-T28/.env` — the fields marked `# ←
 
 **4. Configure `site_local.csh`** (Calibre/PDK paths on the EDA server):
 ```bash
-cd .claude/skills/io-ring-orchestrator-T28/calibre
+cd .claude/skills/t28-ioring/calibre
 cp site_local.csh.example site_local.csh   # then edit with your site paths
 ```
 
@@ -135,8 +135,8 @@ load("/tmp/virtuoso_bridge_<user>/virtuoso_bridge/virtuoso_setup.il")
 ```
 ```bash
 # Run from project root:
-.venv/bin/python .claude/skills/io-ring-orchestrator-T28/scripts/check_virtuoso_connection.py
-# Windows: .venv\Scripts\python.exe .claude\skills\io-ring-orchestrator-T28\scripts\check_virtuoso_connection.py
+.venv/bin/python .claude/skills/t28-ioring/scripts/check_virtuoso_connection.py
+# Windows: .venv\Scripts\python.exe .claude\skills\t28-ioring\scripts\check_virtuoso_connection.py
 ```
 
 **Auto-activate `.venv`:** Set VS Code to use `.venv` as the interpreter, or add
@@ -225,7 +225,7 @@ Generate T28 IO ring with signals: VCM, CLKP, VDDIB, VSSIB, DA0, RST.
 Clockwise placement, 2 pads per side.
 Library: LLM_Layout_Design, Cell: IO_RING_test.
 ```
-Or explicitly: `Use io-ring-orchestrator-T28 to generate an IO ring with...`
+Or explicitly: `Use t28-ioring to generate an IO ring with...`
 
 ### Writing Effective Prompts
 
@@ -306,7 +306,7 @@ for the full reference (`VB_REMOTE_HOST`, `VB_REMOTE_USER`, jump hosts, multi-pr
 | `VB_FS_MODE` | `shared` or `remote` (auto-detect if blank) | No |
 | `AMS_OUTPUT_ROOT` | Output root (default: `./output`) | No |
 
-These live in `.claude/skills/io-ring-orchestrator-T28/.env`.
+These live in `.claude/skills/t28-ioring/.env`.
 
 ### `site_local.csh` variables
 
@@ -328,7 +328,7 @@ These live in `.claude/skills/io-ring-orchestrator-T28/.env`.
 | Virtuoso connection fails | `virtuoso-bridge status` → `restart`; confirm daemon `.il` loaded in CIW |
 | DRC/LVS path errors | Check `CDS_LIB_PATH_28` in `.env`; check `MGC_HOME` / `PDK_LAYERMAP_28` / `incFILE_28` in `site_local.csh` |
 | Wrong output location | Set `AMS_OUTPUT_ROOT` in `.env` |
-| Skill not triggering | Say `Use io-ring-orchestrator-T28 to...`; verify `SKILL.md` exists in `.claude/skills/` |
+| Skill not triggering | Say `Use t28-ioring to...`; verify `SKILL.md` exists in `.claude/skills/` |
 | `import virtuoso_bridge` fails | Run `pip install -e virtuoso-bridge-lite` inside the project `.venv` |
 
 ---
@@ -367,10 +367,10 @@ writing them into the specified file. Every repo URL and command is concrete.
 # Run from the project root directory:
 git clone https://github.com/chenzc24/virtuoso-bridge-lite.git
 mkdir -p .claude/skills
-git clone https://github.com/chenzc24/io-ring-orchestrator-T28.git .claude/skills/io-ring-orchestrator-T28
+git clone https://github.com/chenzc24/t28-ioring.git .claude/skills/t28-ioring
 ```
 
-The skill lands in `.claude/skills/io-ring-orchestrator-T28/` — Claude Code
+The skill lands in `.claude/skills/t28-ioring/` — Claude Code
 discovers skills in `.claude/skills/` automatically. Bridge repo stays at project root.
 
 ---
@@ -386,7 +386,7 @@ source .venv/bin/activate          # Linux / Mac / Git Bash
 # .venv\Scripts\activate.bat       # Windows CMD
 
 pip install -e virtuoso-bridge-lite
-pip install -r .claude/skills/io-ring-orchestrator-T28/requirements.txt
+pip install -r .claude/skills/t28-ioring/requirements.txt
 
 # Verify:
 python -c "import virtuoso_bridge; print('ok:', virtuoso_bridge.__version__)"
@@ -434,7 +434,7 @@ For advanced options (multi-profile, local mode, custom ports), see
 |---|---|
 | `CDS_LIB_PATH_28` | "Remote Linux path to your T28 `cds.lib`? (e.g. `/home/youruser/TSMC28/cds.lib`)" |
 
-Write the value into `.claude/skills/io-ring-orchestrator-T28/.env`. The file ships
+Write the value into `.claude/skills/t28-ioring/.env`. The file ships
 pre-filled with defaults — use the Edit tool to update only the `CDS_LIB_PATH_28` line
 (the one marked `# ← CHANGE path`), replacing the example path with the user's actual path.
 
@@ -443,8 +443,8 @@ pre-filled with defaults — use the Edit tool to update only the `CDS_LIB_PATH_
 ### Step 4 — Write `site_local.csh` ❓(Or keep default in THU servers group) → 🤖
 
 ```bash
-cp .claude/skills/io-ring-orchestrator-T28/calibre/site_local.csh.example \
-   .claude/skills/io-ring-orchestrator-T28/calibre/site_local.csh
+cp .claude/skills/t28-ioring/calibre/site_local.csh.example \
+   .claude/skills/t28-ioring/calibre/site_local.csh
 ```
 
 **Ask user — required:**
@@ -485,9 +485,9 @@ load("/tmp/virtuoso_bridge_<user>/virtuoso_bridge/virtuoso_setup.il")
 Verify end-to-end:
 ```bash
 # Linux/Mac/Git Bash:
-.venv/bin/python .claude/skills/io-ring-orchestrator-T28/scripts/check_virtuoso_connection.py
+.venv/bin/python .claude/skills/t28-ioring/scripts/check_virtuoso_connection.py
 # Windows PowerShell:
-# .venv\Scripts\python.exe .claude\skills\io-ring-orchestrator-T28\scripts\check_virtuoso_connection.py
+# .venv\Scripts\python.exe .claude\skills\t28-ioring\scripts\check_virtuoso_connection.py
 # Success: ✅ Virtuoso Connection: OK
 # Failure: follow printed instructions; run `virtuoso-bridge restart` if tunnel is down
 ```
@@ -500,7 +500,7 @@ Verify end-to-end:
 <project-root>/
 ├── .venv/                                         ← shared env (bridge + all skills)
 ├── virtuoso-bridge-lite/                          ← bridge source (editable install)
-└── .claude/skills/io-ring-orchestrator-T28/
+└── .claude/skills/t28-ioring/
     ├── .env                                       ← T28 skill config (CDS_LIB_PATH_28, VB_FS_MODE)
     └── assets/external_scripts/calibre/
         └── site_local.csh                         ← written in Step 4

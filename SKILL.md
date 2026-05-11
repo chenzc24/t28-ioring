@@ -1,5 +1,5 @@
 ---
-name: io-ring-orchestrator-T28
+name: t28-ioring
 description: Master coordinator for complete T28 (28nm) IO Ring generation. Handles signal classification, device mapping, pin configuration, JSON generation, and complete workflow through DRC/LVS verification. Use this skill for any T28 IO Ring generation task.
 ---
 
@@ -310,7 +310,7 @@ When a generated `.il` fails in Step 8, read `references/skill_language_referenc
 ## Directory Structure
 
 ```
-io-ring-orchestrator-T28/
+t28-ioring/
 ├── SKILL.md                          # This file
 ├── .env                              # Skill configuration (edit per deployment)
 ├── requirements.txt                   # Python requirements (minimal)
