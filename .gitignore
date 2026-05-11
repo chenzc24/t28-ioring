@@ -1,4 +1,6 @@
 /output/
+/todo/
+.env
 __pycache__/
 *.pyc
 *.pyo
