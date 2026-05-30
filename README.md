@@ -23,11 +23,11 @@ Do not assume nested skills are discovered if only the repository root is instal
 t28-ioring/
   README.md
   AGENTS.md
+  requirements.txt
   skills/
     t28-ioring-generator/
       SKILL.md
       .env.example
-      requirements.txt
       scripts/
       io_ring/
       references/
@@ -37,7 +37,6 @@ t28-ioring/
     t28-ioring-simulator/
       SKILL.md
       .env.example
-      requirements.txt
       scripts/
       sim_io/
       references/
@@ -109,8 +108,7 @@ Run from the project root that contains `virtuoso-bridge-lite/` and `t28-ioring/
 python -m venv .venv
 .venv\Scripts\Activate.ps1
 pip install -e .\virtuoso-bridge-lite
-pip install -r .\t28-ioring\skills\t28-ioring-generator\requirements.txt
-pip install -r .\t28-ioring\skills\t28-ioring-simulator\requirements.txt
+pip install -r .\t28-ioring\requirements.txt
 ```
 
 Linux/Git Bash equivalent:
@@ -119,8 +117,7 @@ Linux/Git Bash equivalent:
 python -m venv .venv
 source .venv/bin/activate
 pip install -e ./virtuoso-bridge-lite
-pip install -r ./t28-ioring/skills/t28-ioring-generator/requirements.txt
-pip install -r ./t28-ioring/skills/t28-ioring-simulator/requirements.txt
+pip install -r ./t28-ioring/requirements.txt
 ```
 
 Verify:
@@ -240,7 +237,7 @@ An Agent setting up this repository should do the following, in order:
 
 1. Verify a shared `.venv` exists at the project root.
 2. Install `virtuoso-bridge-lite` editable into `.venv`.
-3. Install both skill requirements.
+3. Install the shared root requirements file.
 4. Run `virtuoso-bridge init ...` if `~/.virtuoso-bridge/.env` is missing.
 5. Ask for and write generator values:
    - `CDS_LIB_PATH_28`

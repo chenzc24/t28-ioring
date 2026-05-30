@@ -1,7 +1,7 @@
-# Python runtime dependencies for T28 IO Ring Orchestrator
+# Python runtime dependencies for the T28 IO Ring Suite
 # Python 3.9+
 
-# === Prerequisite — install BEFORE this skill ===
+# Prerequisite: install virtuoso-bridge-lite before using either skill.
 # virtuoso-bridge-lite provides VirtuosoClient and SSHClient (the Virtuoso bridge
 # and remote SSH/file-transfer layer). It is not on PyPI; install from source:
 #
@@ -11,8 +11,8 @@
 # After installing, run:  virtuoso-bridge init && virtuoso-bridge start
 # See README.md > Prerequisites for full setup instructions.
 
-# Required by bridge_utils.py and scripts
+# Required by both skills for .env loading.
 python-dotenv>=1.0,<2.0
 
-# Required by assets/core/layout/layout_visualizer.py
+# Required by the generator for layout visualization.
 matplotlib>=3.5,<4.0
