@@ -44,6 +44,7 @@ from sim_io.flow import (
     place_sources_and_loads,
 )
 from sim_io.config import read_latest_run
+from sim_io.library_mapping import require_configured_library_mapping
 from sim_io.pin_types import ClassificationResult, PinClassification, PinInfo
 
 
@@ -79,6 +80,7 @@ def run_tb_builder(
     tb_cell = dut_context.tb_cell
     pins = dut_context.pins
     vdd_value = dut_context.vdd_value
+    require_configured_library_mapping(client, lib)
 
     # Load LLM classifications from run_dir/pin_classifications.json
     classif_result: ClassificationResult | None = load_llm_result(

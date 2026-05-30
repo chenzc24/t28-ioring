@@ -63,10 +63,10 @@ def run_il_file(il_file_path: str, lib: str, cell: str, view: str = "layout", sa
         rb_exec,
         load_skill_file,
         save_current_cellview,
+        require_configured_library_mapping,
     )
 
-    # Ensure library exists before opening cellview
-    lib_check = rb_exec(f'if(!ddGetObj("{lib}") dbCreateLib("{lib}" "tphn28hpcpgv18"))', timeout=15)
+    require_configured_library_mapping(lib)
 
     skill_path = Path(il_file_path)
     if not skill_path.exists():

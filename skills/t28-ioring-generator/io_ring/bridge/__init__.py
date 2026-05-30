@@ -6,6 +6,7 @@ from .client import (
     _get_ssh,
     rb_exec,
     get_current_design,
+    require_configured_library_mapping,
     _escape_path_for_skill,
     _get_remote_bridge_dir,
     _cleanup_remote_il_files,

@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import json
 import os
+import shlex
 import subprocess
 from pathlib import Path
 from typing import Optional, Tuple
 
 from .check import _load_vb_env
+from .check import _read_env_raw
 
 
 def _get_client():
@@ -60,6 +62,70 @@ def rb_exec(skill: str, timeout: int = 30) -> str:
         raise
     except Exception as e:
         return f"Bridge execution error: {str(e)}"
+
+
+def _skill_string(value: str) -> str:
+    """Escape a value for use as a SKILL string literal."""
+    return value.replace("\\", "\\\\").replace('"', '\\"')
+
+
+def _normalize_remote_path(path: str) -> str:
+    return (path or "").strip().strip('"').rstrip("/")
+
+
+def _expected_lib_path_from_cds_lib(lib: str) -> str:
+    """Return the direct DEFINE path for ``lib`` in configured cds.lib, if any."""
+    cds_lib = _read_env_raw("CDS_LIB_PATH_28") or _read_env_raw("SIM_CDS_LIB")
+    if not cds_lib:
+        return ""
+    try:
+        ssh = _get_ssh()
+        cmd = (
+            "awk "
+            + shlex.quote(f'$1=="DEFINE" && $2=="{lib}" {{print $3; exit}}')
+            + " "
+            + shlex.quote(cds_lib)
+        )
+        result = ssh.run_command(cmd, timeout=15)
+        if getattr(result, "returncode", 1) != 0:
+            return ""
+        return _normalize_remote_path(getattr(result, "stdout", "") or "")
+    except Exception:
+        return ""
+
+
+def require_configured_library_mapping(lib: str) -> None:
+    """Fail if Virtuoso's loaded library table disagrees with configured cds.lib.
+
+    Virtuoso does not automatically reload the library table when the process
+    environment changes. This check prevents writing generated cells into a
+    stale session library that happens to have the same logical library name.
+    """
+    lib_s = _skill_string(lib)
+    actual = rb_exec(
+        f'let((libObj) libObj=ddGetObj("{lib_s}") '
+        f'if(libObj sprintf(nil "%s" libObj~>readPath) "nil"))',
+        timeout=15,
+    )
+    actual_norm = _normalize_remote_path(actual)
+    if not actual_norm or actual_norm == "nil":
+        cds_lib = _read_env_raw("CDS_LIB_PATH_28") or _read_env_raw("SIM_CDS_LIB") or "<unset>"
+        raise RuntimeError(
+            f"Virtuoso library '{lib}' is not loaded. Start Virtuoso with CDS_LIB={cds_lib} "
+            "or add the library to the active Library Manager before running generation."
+        )
+
+    expected_norm = _expected_lib_path_from_cds_lib(lib)
+    if expected_norm and actual_norm != expected_norm:
+        cwd = rb_exec("getWorkingDir()", timeout=10).strip()
+        session_cds = rb_exec('getShellEnvVar("CDS_LIB")', timeout=10).strip()
+        raise RuntimeError(
+            "Virtuoso library mapping mismatch for "
+            f"{lib}: active session maps to {actual_norm}, but configured cds.lib maps to "
+            f"{expected_norm}. Session cwd={cwd}, CDS_LIB={session_cds}. "
+            "Restart Virtuoso from the configured project/cds.lib or reload the correct "
+            "library mapping before running generation."
+        )
 
 
 def get_current_design() -> Tuple[Optional[str], Optional[str], Optional[str]]:

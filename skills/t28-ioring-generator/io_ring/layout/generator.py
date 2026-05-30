@@ -463,7 +463,7 @@ def generate_layout_from_json(json_file: str, output_file: str = "generated_layo
     print("[>>] Starting Layout Skill script generation...")
     skill_commands = []
     
-    skill_commands.append("cv = geGetWindowCellView()")
+    skill_commands.append("cv = geGetEditCellView()")
     skill_commands.append("; Generated Layout Script with Dual Ring Support")
     skill_commands.append("")
     
@@ -562,4 +562,3 @@ def generate_layout_from_json(json_file: str, output_file: str = "generated_layo
     print(f"[OK] Layout Skill script generated: {output_file}")
     
     return output_file
-

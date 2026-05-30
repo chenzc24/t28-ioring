@@ -39,6 +39,7 @@ from sim_io.flow import (
     redistribute_symbol,
     extract_dut_pins,
 )
+from sim_io.library_mapping import require_configured_library_mapping
 from sim_io.pin_types import write_pin_info_json
 
 
@@ -61,6 +62,7 @@ def run_symbol_export(
     if client is None:
         client = VirtuosoClient.from_env()
 
+    require_configured_library_mapping(client, lib)
     run_dir = create_run_dir()
 
     # Validate lib/cell
