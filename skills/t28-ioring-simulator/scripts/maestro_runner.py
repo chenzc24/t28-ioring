@@ -88,7 +88,7 @@ def run_maestro_runner(
         deck_config.model_includes = sim_config_from_site(
             vdd_value=vdd_value
         ).model_includes
-        print(f"[sim-config] Injected {len(deck_config.model_includes)} model includes from .env")
+        print(f"[sim-config] Injected {len(deck_config.model_includes)} model includes from site config")
     try:
         build_maestro_setup(client, lib, tb_cell, deck_config, pins=pins,
                             auto_close=True, classifications=classifications)

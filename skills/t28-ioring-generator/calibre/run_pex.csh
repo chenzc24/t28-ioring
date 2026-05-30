@@ -14,7 +14,8 @@
 # Initialize environment — source site Cadence/Mentor setup if available.
 # These scripts add Calibre/strmout to PATH and set license variables.
 # On most EDA servers they live under /home/cshrc/ or similar.
-# If your site uses different paths, set them in site_local.csh.
+# Normal runs receive site paths from repo-root _local/site.yaml via a
+# generated site_local.csh uploaded by the Python runner.
 if ( -f /home/cshrc/.cshrc.cadence.IC618SP201 ) then
     source /home/cshrc/.cshrc.cadence.IC618SP201
 endif
@@ -110,58 +111,24 @@ endif
 
 echo "[run_pex] TECH_NODE='$tech_node' -> using rule file: $calibreRuleFile"
 
-# Check if CDS_LIB_PATH is set (technology node specific first, then fallback)
+# Check if CDS_LIB_PATH is set.
 if ( "$tech_node" =~ T180* || "$tech_node" =~ 180* ) then
-    # For T180
     if ( $?CDS_LIB_PATH_180 ) then
         set cdsLibPath = "$CDS_LIB_PATH_180"
     else if ( $?CDS_LIB_PATH ) then
         set cdsLibPath = "$CDS_LIB_PATH"
     else
-        # Try to read from project .env file
-        if ( -f "$PROJECT_ROOT/.env" ) then
-            set cds_from_env = `grep -E "^CDS_LIB_PATH_180=" "$PROJECT_ROOT/.env" | sed -e 's/^CDS_LIB_PATH_180=//'`
-            if ( "$cds_from_env" != "" ) then
-                set cdsLibPath = "$cds_from_env"
-            else
-                set cds_from_env = `grep -E "^CDS_LIB_PATH=" "$PROJECT_ROOT/.env" | sed -e 's/^CDS_LIB_PATH=//'`
-                if ( "$cds_from_env" != "" ) then
-                    set cdsLibPath = "$cds_from_env"
-                else
-                    echo "Error: CDS_LIB_PATH_180 or CDS_LIB_PATH is not set. Please set it in $PROJECT_ROOT/.env or env_common.csh"
-                    exit 1
-                endif
-            endif
-        else
-            echo "Error: CDS_LIB_PATH_180 or CDS_LIB_PATH is not set and $PROJECT_ROOT/.env not found"
-            exit 1
-        endif
+        echo "Error: CDS_LIB_PATH_180 or CDS_LIB_PATH is not set. Configure _local/site.yaml or pass CDS_LIB_PATH_180/CDS_LIB_PATH in the environment."
+        exit 1
     endif
 else
-    # For T28
     if ( $?CDS_LIB_PATH_28 ) then
         set cdsLibPath = "$CDS_LIB_PATH_28"
     else if ( $?CDS_LIB_PATH ) then
         set cdsLibPath = "$CDS_LIB_PATH"
     else
-        # Try to read from project .env file
-        if ( -f "$PROJECT_ROOT/.env" ) then
-            set cds_from_env = `grep -E "^CDS_LIB_PATH_28=" "$PROJECT_ROOT/.env" | sed -e 's/^CDS_LIB_PATH_28=//'`
-            if ( "$cds_from_env" != "" ) then
-                set cdsLibPath = "$cds_from_env"
-            else
-                set cds_from_env = `grep -E "^CDS_LIB_PATH=" "$PROJECT_ROOT/.env" | sed -e 's/^CDS_LIB_PATH=//'`
-                if ( "$cds_from_env" != "" ) then
-                    set cdsLibPath = "$cds_from_env"
-                else
-                    echo "Error: CDS_LIB_PATH_28 or CDS_LIB_PATH is not set. Please set it in $PROJECT_ROOT/.env or env_common.csh"
-                    exit 1
-                endif
-            endif
-        else
-            echo "Error: CDS_LIB_PATH_28 or CDS_LIB_PATH is not set and $PROJECT_ROOT/.env not found"
-            exit 1
-        endif
+        echo "Error: CDS_LIB_PATH_28 or CDS_LIB_PATH is not set. Configure _local/site.yaml or pass CDS_LIB_PATH_28/CDS_LIB_PATH in the environment."
+        exit 1
     endif
 endif
 

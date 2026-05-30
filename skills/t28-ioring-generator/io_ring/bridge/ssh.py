@@ -17,6 +17,22 @@ from .client import (
 )
 
 
+def _render_generated_site_local_csh() -> str:
+    """Return generated Calibre csh config from _local/site.yaml, if available."""
+    try:
+        import sys
+        from .check import _find_project_root
+
+        project_root = _find_project_root()
+        if project_root not in sys.path:
+            sys.path.insert(0, project_root)
+        from tools.t28_site_config import render_calibre_site_local_csh
+
+        return render_calibre_site_local_csh(project_root)
+    except Exception:
+        return ""
+
+
 def _download_via_cat(ssh, remote_path: str, local_path: Path, timeout: int = 60) -> Optional[str]:
     """Download a binary file using 'base64 remote_path' over ssh.run_command().
 
@@ -148,6 +164,13 @@ def _upload_calibre_tree(ssh, calibre_dir: Path, remote_base: str, timeout: int 
             if f.suffix in (".csh", ".sh", ".il", ".skill"):
                 content = content.replace(b"\r", b"")
             info = tarfile.TarInfo(name=rel)
+            info.size = len(content)
+            tar.addfile(info, io.BytesIO(content))
+
+        generated_site_local = _render_generated_site_local_csh()
+        if generated_site_local:
+            content = generated_site_local.encode("utf-8")
+            info = tarfile.TarInfo(name="site_local.csh")
             info.size = len(content)
             tar.addfile(info, io.BytesIO(content))
 
@@ -368,7 +391,7 @@ def execute_csh_script(script_path: str, *args, timeout: int = 600) -> str:
         remote_ams_root = local_ams_root
         print(f"[execute_csh_script] fs_mode=shared  AMS_OUTPUT_ROOT={local_ams_root}")
 
-    # Read CDS_LIB_PATH_28 directly from the project .env file (raw dotenv parse)
+    # Read remote paths from _local/site.yaml instead of shell-expanded env,
     # instead of os.environ — Git bash on Windows converts /home/... paths to
     # C:\Program Files\Git\home\... which breaks on the remote Linux server.
     cds_lib = _read_env_raw("CDS_LIB_PATH_28")
@@ -379,6 +402,10 @@ def execute_csh_script(script_path: str, *args, timeout: int = 600) -> str:
         env_parts.append(f"AMS_OUTPUT_ROOT={shlex.quote(remote_ams_root)}")
     if cds_lib:
         env_parts.append(f"CDS_LIB_PATH_28={shlex.quote(cds_lib)}")
+    for env_name in ("MGC_HOME", "PDK_LAYERMAP_28", "incFILE_28"):
+        env_value = _read_env_raw(env_name)
+        if env_value:
+            env_parts.append(f"{env_name}={shlex.quote(env_value)}")
     env_prefix = " ".join(env_parts) + " " if env_parts else ""
 
     log_file = f"{remote_base}/{cell_tag}_run.log"

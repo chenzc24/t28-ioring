@@ -105,17 +105,6 @@ def _resolve_vb_env_source() -> tuple[str, str]:
         if p.is_file():
             return "VB_ENV_FILE", str(p)
 
-    cwd = Path.cwd().resolve()
-    for parent in [cwd, *cwd.parents]:
-        candidate = parent / ".env"
-        if candidate.is_file():
-            try:
-                text = candidate.read_text(encoding="utf-8", errors="replace")
-            except OSError:
-                continue
-            if "VB_REMOTE_HOST" in text or "VB_LOCAL_PORT" in text:
-                return "project-level", str(candidate)
-
     user_env = Path.home() / ".virtuoso-bridge" / ".env"
     if user_env.is_file():
         return "user-level", str(user_env)
@@ -141,10 +130,8 @@ def check_environment() -> list:
         report.append("VB .env: NOT FOUND in any of the expected locations")
         report.append("  Searched:")
         report.append("    - $VB_ENV_FILE")
-        report.append("    - .env in cwd and parents (with VB_REMOTE_HOST or VB_LOCAL_PORT)")
         report.append("    - ~/.virtuoso-bridge/.env")
         report.append("  → Create one with: virtuoso-bridge init   (user-level)")
-        report.append("     or place a .env in your project root")
     else:
         report.append(f"VB .env source: {label}")
         report.append(f"  path: {path}")

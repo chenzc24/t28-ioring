@@ -1,0 +1,58 @@
+# T28 IO Ring local site configuration template.
+#
+# Copy this file to `_local/site.yaml` and fill in site-specific values.
+# `_local/site.yaml` is ignored by git and is the primary configuration
+# entry point for both sibling skills.
+
+project:
+  # Shared output root. Generator writes generated/drc/lvs/pex under this root;
+  # simulator writes simulation/<timestamp> under this root.
+  output_root: E:/bridge-Agent-T28/t28-ioring/output
+
+generator:
+  # Optional UI modes. Use "on" to open the editor, "off" for batch runs.
+  draft_editor: "off"
+  layout_editor: "off"
+
+bridge:
+  # remote = Windows/local host reaches EDA server over SSH.
+  # shared = local and EDA server see the same filesystem paths.
+  fs_mode: remote
+  # Recommended for Windows/OpenSSH jump-host setups.
+  disable_control_master: true
+
+cadence:
+  # Remote Linux path to the T28 cds.lib.
+  cds_lib_28: /path/to/TSMC28/cds.lib
+  # Remote Cadence IC root used for si netlist export.
+  ic_root: /path/to/cadence/IC618
+  # Remote Spectre/MMSIM installation root.
+  mmsim_root: /path/to/cadence/SPECTRE
+  # Optional cshrc sourced before Calibre runs.
+  cadence_cshrc: /path/to/.cshrc.cadence
+
+calibre:
+  # Remote Calibre install root.
+  mgc_home: /path/to/calibre
+  # Optional cshrc sourced before Calibre runs.
+  mentor_cshrc: /path/to/.cshrc.mentor
+  # Remote T28 stream layer map and LVS include/source-added file.
+  pdk_layermap_28: /path/to/tsmcN28.layermap
+  lvs_include_28: /path/to/Calibre/lvs/source.added
+
+spectre:
+  # T28 IO pad SPICE model include.
+  io_model_include: /path/to/tphn28hpcpgv18.spi
+  # T28 core Spectre model include and sections.
+  core_model_include: /path/to/crn28ull_model.scs
+  core_sections:
+    - pre_simu
+    - ttmacro_mos_moscap
+    - tt_res_bip_dio_disres
+    - tt_mom
+    - tt_ind_jvar
+    - tt_r_metal
+    - noise_worst
+  # Required license variables used by netlist export and Spectre.
+  lm_license_file: 5280@license-host
+  cds_lic_file: 5280@license-host

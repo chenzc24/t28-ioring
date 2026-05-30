@@ -22,8 +22,6 @@ from pathlib import Path
 from typing import Optional
 
 
-# ── PDK Constants ───────────────────────────────────────────────
-
 TSMC28_MODEL_FILE = (
     "/home/process/tsmc28n/PDK_mmWave/iPDK_CRN28HPC+ULL_v1.8_2p2a_20190531"
     "/tsmcN28/../models/spectre/crn28ull_1d8_elk_v1d8_2p2_shrink0d9_embedded_usage.scs"
@@ -37,16 +35,14 @@ TSMC28_SECTIONS = [
     "tt_ind_jvar",
     "tt_r_metal",
 ]
-
 TSMC28_IO_MODEL_FILE = (
     "/home/process/tsmc28n/IO/tphn28hpcpgv18_170a/0971001_20180621"
     "/tphn28hpcpgv18_110a_spi/TSMCHOME/digital/Back_End/spice"
     "/tphn28hpcpgv18_110a/tphn28hpcpgv18.spi"
 )
 
-SPECTRE_BIN = "/home/cadence/spectre/SPECTRE211/tools/bin/spectre"
-SPECTRE_LICENSE = "1717@lic_server:5280@thu-han"
 
+# ── PDK Constants ───────────────────────────────────────────────
 
 # ── Data Structures ─────────────────────────────────────────────
 
@@ -225,8 +221,12 @@ def write_sim_config_input(
         "netlist_summary": netlist_summary,
         "pin_classifications": pin_classifications or [],
         "pdk_info": {
-            "model_file": TSMC28_MODEL_FILE,
-            "available_sections": TSMC28_SECTIONS,
+            "model_file": os.getenv("SIM_PDK_CORE_SPECTRE_INCLUDE", ""),
+            "available_sections": [
+                section.strip()
+                for section in os.getenv("SIM_PDK_CORE_SPECTRE_SECTIONS", "").split(",")
+                if section.strip()
+            ],
         },
     }
     Path(path).write_text(
@@ -662,18 +662,26 @@ def sim_config_from_site(
 ) -> SimDeckConfig:
     """Build SimDeckConfig from site defaults.
 
-    Uses SIM_PDK_CORE_SPECTRE_INCLUDE env var (or hardcoded TSMC28 fallback)
-    and SIM_PDK_CORE_SPECTRE_SECTIONS env var (or hardcoded TSMC28_SECTIONS).
+    Uses SiteConfig-exported environment values. If model paths or sections are
+    missing, falls back to built-in T28 defaults with explicit WARNING output.
     """
-    mf = model_file or os.getenv("SIM_PDK_CORE_SPECTRE_INCLUDE", "") or TSMC28_MODEL_FILE
+    mf = model_file or os.getenv("SIM_PDK_CORE_SPECTRE_INCLUDE", "")
+    if not mf:
+        mf = TSMC28_MODEL_FILE
+        print("[sim-config] WARNING: spectre.core_model_include is missing; using built-in T28 core model fallback.")
     secs_str = os.getenv("SIM_PDK_CORE_SPECTRE_SECTIONS", "")
     if secs_str:
         secs = secs_str.split(",")
     else:
         secs = sections or TSMC28_SECTIONS
+        if not sections:
+            print("[sim-config] WARNING: spectre.core_sections is missing; using built-in T28 section fallback.")
 
     # IO pad model — only include if the env var is set (PDK-specific)
     io_model_path = os.getenv("SIM_PDK_IO_SPECTRE_INCLUDE", "")
+    if not io_model_path:
+        io_model_path = TSMC28_IO_MODEL_FILE
+        print("[sim-config] WARNING: spectre.io_model_include is missing; using built-in T28 IO model fallback.")
     model_includes = [ModelInclude(path=mf, section=s) for s in secs]
     if io_model_path:
         model_includes.append(ModelInclude(path=io_model_path, section=""))

@@ -37,35 +37,36 @@ Generated files under `output/` are artifacts, not source of truth. It is accept
 
 ## Configuration
 
-Keep generator and simulator `.env` files separate.
-
-Generator-specific variables belong in `skills/t28-ioring-generator/.env`:
+Use one local site configuration file for generator, Calibre, Spectre, and simulator:
 
 ```text
-CDS_LIB_PATH_28
-VB_FS_MODE
-AMS_DRAFT_EDITOR
-AMS_LAYOUT_EDITOR
-AMS_OUTPUT_ROOT
+_local/site.yaml
 ```
 
-Simulator-specific variables belong in `skills/t28-ioring-simulator/.env`:
+Create it from `_local/site.yaml.template`. It is ignored by git and is the only normal Agent-facing place for site-specific values:
 
 ```text
-SIM_CDS_LIB
-SIM_IC_ROOT
-SIM_MMSIM_ROOT
-SIM_LM_LICENSE_FILE
-SIM_CDS_LIC_FILE
-SIM_PDK_IO_SPECTRE_INCLUDE
-SIM_PDK_CORE_SPECTRE_INCLUDE
-SIM_PDK_CORE_SPECTRE_SECTIONS
-AMS_OUTPUT_ROOT
-VB_DISABLE_CONTROL_MASTER
+project.output_root
+generator.draft_editor
+generator.layout_editor
+bridge.fs_mode
+bridge.disable_control_master
+cadence.cds_lib_28
+cadence.ic_root
+cadence.mmsim_root
+calibre.mgc_home
+calibre.pdk_layermap_28
+calibre.lvs_include_28
+spectre.io_model_include
+spectre.core_model_include
+spectre.core_sections
+spectre.lm_license_file
+spectre.cds_lic_file
 ```
 
-The simulator may fall back from `SIM_CDS_LIB` to `CDS_LIB_PATH_28`. Do not introduce a mandatory common `.env` unless several more variables become genuinely shared.
-Use `VB_DISABLE_CONTROL_MASTER=1` on Windows/OpenSSH jump-host setups to avoid stale mux socket failures during direct Spectre uploads.
+Keep `~/.virtuoso-bridge/.env` separate; it is owned by `virtuoso-bridge init` and stores bridge connection values.
+
+T28 setup is not read from skill-local `.env` files or project `.env` files. Do not edit `calibre/env_common.csh` or `calibre/site_local.csh` for local paths. Run `tools/t28_config_check.py` before long generation or simulation flows.
 
 ## Generator Guardrails
 

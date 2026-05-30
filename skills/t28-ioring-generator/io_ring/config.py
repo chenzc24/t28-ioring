@@ -8,7 +8,23 @@ that was previously duplicated across multiple scripts.
 """
 
 import os
+import sys
 from pathlib import Path
+
+
+def _apply_unified_site_config() -> None:
+    here = Path(__file__).resolve()
+    for candidate in [here.parent, *here.parents]:
+        if (candidate / "skills").is_dir():
+            if str(candidate) not in sys.path:
+                sys.path.insert(0, str(candidate))
+            try:
+                from tools.t28_site_config import apply_site_config
+
+                apply_site_config(candidate, override=False, required=False)
+            except Exception:
+                pass
+            return
 
 
 def resolve_output_root() -> Path:
@@ -20,6 +36,8 @@ def resolve_output_root() -> Path:
     3) Current working directory output
     4) Legacy skill-relative output
     """
+    _apply_unified_site_config()
+
     env_root = os.environ.get("AMS_OUTPUT_ROOT", "").strip()
     if env_root:
         return Path(env_root).expanduser().resolve(strict=False)

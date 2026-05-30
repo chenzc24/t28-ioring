@@ -44,15 +44,20 @@ SKILL_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 SCRIPTS_PATH="${SKILL_ROOT}/scripts"
 export PYTHONPATH="${SKILL_ROOT}:${PYTHONPATH:-}"
 
-PROJECT_ROOT="$(cd "${SKILL_ROOT}" && while [ ! -d .venv ] && [ "$(pwd)" != "/" ]; do cd ..; done; pwd)"
-if   [ -f "${PROJECT_ROOT}/.venv/Scripts/python.exe" ]; then export AMS_PYTHON="${PROJECT_ROOT}/.venv/Scripts/python.exe"
-elif [ -f "${PROJECT_ROOT}/.venv/bin/python" ];         then export AMS_PYTHON="${PROJECT_ROOT}/.venv/bin/python"
+# REPO_ROOT owns _local/site.yaml and tools/t28_config_export.py.
+REPO_ROOT="$(cd "${SKILL_ROOT}" && while [ ! -f tools/t28_config_export.py ] && [ "$(pwd)" != "/" ]; do cd ..; done; pwd)"
+
+# VENV_ROOT may be the parent workspace that contains both t28-ioring/ and virtuoso-bridge-lite/.
+VENV_ROOT="$(cd "${SKILL_ROOT}" && while [ ! -d .venv ] && [ "$(pwd)" != "/" ]; do cd ..; done; pwd)"
+if   [ -f "${VENV_ROOT}/.venv/Scripts/python.exe" ]; then export AMS_PYTHON="${VENV_ROOT}/.venv/Scripts/python.exe"
+elif [ -f "${VENV_ROOT}/.venv/bin/python" ];         then export AMS_PYTHON="${VENV_ROOT}/.venv/bin/python"
 elif command -v python3 >/dev/null 2>&1;                then export AMS_PYTHON="python3"
 elif command -v python  >/dev/null 2>&1;                then export AMS_PYTHON="python"
 else echo "ERROR: No Python found."; return 1; fi
 
-[ -f "${SKILL_ROOT}/.env.local" ] && { set -a; . "${SKILL_ROOT}/.env.local"; set +a; }
-[ -f "${SKILL_ROOT}/.env" ] && { set -a; . "${SKILL_ROOT}/.env"; set +a; }
+if [ -f "${REPO_ROOT}/tools/t28_config_export.py" ]; then
+  eval "$("$AMS_PYTHON" "${REPO_ROOT}/tools/t28_config_export.py" --shell sh)"
+fi
 
 # Windows/OpenSSH jump-host setups can fail on stale ControlMaster sockets during Spectre uploads.
 export VB_DISABLE_CONTROL_MASTER="${VB_DISABLE_CONTROL_MASTER:-1}"
@@ -62,19 +67,12 @@ All subsequent commands use `$AMS_PYTHON`.
 
 Required simulator configuration:
 
-- `SIM_CDS_LIB` or fallback `CDS_LIB_PATH_28`
-- `SIM_IC_ROOT`
-- `SIM_PDK_IO_SPECTRE_INCLUDE`
-- `SIM_PDK_CORE_SPECTRE_INCLUDE`
+- `_local/site.yaml` at the repository root.
+- `~/.virtuoso-bridge/.env`, created by `virtuoso-bridge init`, for bridge connection values.
 
 Optional:
 
-- `AMS_OUTPUT_ROOT`
-- `SIM_MMSIM_ROOT`
-- `SIM_LM_LICENSE_FILE`
-- `SIM_CDS_LIC_FILE`
 - `VB_DISABLE_CONTROL_MASTER` (recommended `1` on Windows/OpenSSH jump-host setups)
-- `SIM_PDK_CORE_SPECTRE_SECTIONS`
 
 ## Step 1: Symbol Export
 
@@ -156,7 +154,7 @@ Do not write raw OCEAN expressions in `outputs`; use `pin_measurements`.
 $AMS_PYTHON "$SCRIPTS_PATH/tb_builder.py" [--run-dir <run_dir>]
 ```
 
-If `--run-dir` is omitted, the script reads `${AMS_OUTPUT_ROOT}/simulation/.latest_run`, with old skill-local `.latest_run` accepted as a compatibility fallback.
+If `--run-dir` is omitted, the script reads `${AMS_OUTPUT_ROOT}/simulation/.latest_run`.
 
 What it does:
 
@@ -183,7 +181,7 @@ $AMS_PYTHON "$SCRIPTS_PATH/spectre_runner.py" [--run-dir <run_dir>] [--intent "<
 What it does:
 
 1. Exports a fresh Spectre netlist from `{cell}_tb`.
-2. Builds `deck.scs` from `sim_config.json` plus model includes from `.env`.
+2. Builds `deck.scs` from `sim_config.json` plus model includes from `_local/site.yaml`.
 3. Runs Spectre directly.
 4. Parses PSF results locally.
 5. Writes measurements and SVG plots.
@@ -220,13 +218,13 @@ Prefer `spectre_runner.py` for normal simulator validation.
 | `lib/cell` not found | Verify `SIM_CDS_LIB` or `CDS_LIB_PATH_28` points to the right remote `cds.lib` |
 | No schematic view | Open/create `{lib}/{cell}/schematic` before Step 1 |
 | Wrong source/load placement | Re-read `pin_classification.md` and fix `pin_classifications.json` |
-| Spectre model missing | Check `SIM_PDK_IO_SPECTRE_INCLUDE` and `SIM_PDK_CORE_SPECTRE_INCLUDE` |
-| Spectre license error | Set `SIM_LM_LICENSE_FILE` and `SIM_CDS_LIC_FILE`, or rely on Virtuoso environment discovery |
+| Spectre model missing | Check `spectre.io_model_include` and `spectre.core_model_include` in `_local/site.yaml` |
+| Spectre license error | Set `spectre.lm_license_file` and `spectre.cds_lic_file` in `_local/site.yaml` |
 | `si` netlist export hangs | Dismiss Virtuoso confirmation dialogs or check `templates/si_spectre.env` |
 
 ## Completion Checklist
 
-- [ ] Step 0: `$AMS_PYTHON` resolved and simulator `.env` loaded.
+- [ ] Step 0: `$AMS_PYTHON` resolved and `_local/site.yaml` loaded.
 - [ ] Step 1: `pin_info.json`, `dut_context.json`, and `output/simulation/.latest_run` written.
 - [ ] Step 2: `pin_classifications.json` written after reading `pin_classification.md`.
 - [ ] Step 2: `sim_config.json` written after reading `sim_config_rules.md`.

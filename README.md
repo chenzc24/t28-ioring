@@ -24,10 +24,15 @@ t28-ioring/
   README.md
   AGENTS.md
   requirements.txt
+  _local/
+    site.yaml.template
+  tools/
+    t28_config_check.py
+    t28_config_export.py
+    t28_site_config/
   skills/
     t28-ioring-generator/
       SKILL.md
-      .env.example
       scripts/
       io_ring/
       references/
@@ -36,7 +41,6 @@ t28-ioring/
       T28_Testbench/
     t28-ioring-simulator/
       SKILL.md
-      .env.example
       scripts/
       sim_io/
       references/
@@ -68,11 +72,11 @@ Filesystem mode controls how Calibre scripts and results are exchanged:
 | `remote` | Windows PC, or no shared filesystem | Scripts are uploaded to `/tmp/vb_t28_calibre...` by SSH; reports are downloaded locally. |
 | `shared` | Linux on same NFS as EDA server | Local and EDA server see the same paths. |
 
-The generator auto-detects the mode. Set `VB_FS_MODE` in `skills/t28-ioring-generator/.env` to override.
+The generator auto-detects the mode. Set `bridge.fs_mode` in `_local/site.yaml` to override.
 
 ## Output Contract
 
-Both skills use `AMS_OUTPUT_ROOT` when set. The intended shared layout is:
+Both skills use `project.output_root` from `_local/site.yaml` unless an explicit `AMS_OUTPUT_ROOT` environment variable overrides it. The intended shared layout is:
 
 ```text
 ${AMS_OUTPUT_ROOT}/generated/<timestamp>/     generator JSON, SKILL, screenshots
@@ -83,7 +87,7 @@ ${AMS_OUTPUT_ROOT}/lvs/                       LVS reports
 ${AMS_OUTPUT_ROOT}/pex/                       PEX artifacts
 ```
 
-If `AMS_OUTPUT_ROOT` is unset, both skills fall back to this repository's `output/` directory.
+If neither `_local/site.yaml` nor `AMS_OUTPUT_ROOT` is set, both skills fall back to this repository's `output/` directory.
 
 ## Prerequisites
 
@@ -143,70 +147,46 @@ virtuoso-bridge init <username>@<eda-server> -J <username>@<jump-host>
 
 This writes `~/.virtuoso-bridge/.env` with bridge variables such as `VB_REMOTE_HOST`, `VB_REMOTE_USER`, jump-host settings, and ports. See the `virtuoso-bridge-lite` README for advanced multi-profile or local-mode setup.
 
-### 3. Configure the generator skill
+### 3. Configure T28 site paths
 
-Create the generator `.env` from the example:
-
-```powershell
-Copy-Item .\t28-ioring\skills\t28-ioring-generator\.env.example .\t28-ioring\skills\t28-ioring-generator\.env
-```
-
-Edit `skills/t28-ioring-generator/.env`:
-
-| Variable | Required | Description |
-|---|---:|---|
-| `CDS_LIB_PATH_28` | Yes | Remote Linux path to the T28 `cds.lib`. |
-| `VB_FS_MODE` | No | `remote` or `shared`; leave blank for auto-detect. |
-| `AMS_OUTPUT_ROOT` | No | Shared output root; recommended: `<repo>/output`. |
-| `AMS_DRAFT_EDITOR` | No | `on` to open the draft editor by default; otherwise `off`. |
-| `AMS_LAYOUT_EDITOR` | No | `on` to open the layout confirmation editor; otherwise `off`. |
-
-### 4. Configure Calibre/PDK paths
-
-Create the local site override:
+Create one local site config for generator, Calibre, Spectre, and simulator:
 
 ```powershell
-Copy-Item .\t28-ioring\skills\t28-ioring-generator\calibre\site_local.csh.example .\t28-ioring\skills\t28-ioring-generator\calibre\site_local.csh
+Copy-Item .\t28-ioring\_local\site.yaml.template .\t28-ioring\_local\site.yaml
 ```
 
-Edit `skills/t28-ioring-generator/calibre/site_local.csh`:
+Linux/Git Bash equivalent:
 
-| Variable/path | Required | Description |
-|---|---:|---|
-| Cadence cshrc source | Site-dependent | Example: `source /home/cshrc/.cshrc.cadence.IC618SP201` |
-| Mentor cshrc source | Site-dependent | Example: `source /home/cshrc/.cshrc.mentor` |
-| `MGC_HOME` | Yes | Calibre installation root. |
-| `PDK_LAYERMAP_28` | Yes | T28 stream layer map. |
-| `incFILE_28` | Yes | T28 LVS include/source-added file. |
+```bash
+cp ./t28-ioring/_local/site.yaml.template ./t28-ioring/_local/site.yaml
+```
 
-Do not edit `env_common.csh` for site-specific values. Use `site_local.csh`; it is ignored by git.
+Edit `_local/site.yaml`:
 
-### 5. Configure the simulator skill
+| Section | Required values |
+|---|---|
+| `project` | `output_root` |
+| `generator` | optional `draft_editor`, `layout_editor` (`on` or `off`) |
+| `bridge` | `fs_mode`, `disable_control_master` |
+| `cadence` | `cds_lib_28`, `ic_root`, `mmsim_root`, optional `cadence_cshrc` |
+| `calibre` | `mgc_home`, `pdk_layermap_28`, `lvs_include_28`, optional `mentor_cshrc` |
+| `spectre` | `io_model_include`, `core_model_include`, `core_sections`, `lm_license_file`, `cds_lic_file` |
 
-Create the simulator `.env` from the example:
+Validate:
 
 ```powershell
-Copy-Item .\t28-ioring\skills\t28-ioring-simulator\.env.example .\t28-ioring\skills\t28-ioring-simulator\.env
+.\.venv\Scripts\python.exe .\t28-ioring\tools\t28_config_check.py
 ```
 
-Edit `skills/t28-ioring-simulator/.env`:
+Linux/Git Bash equivalent:
 
-| Variable | Required | Description |
-|---|---:|---|
-| `SIM_CDS_LIB` | Yes | Remote Linux path to `cds.lib`; if omitted, simulator falls back to `CDS_LIB_PATH_28`. |
-| `SIM_IC_ROOT` | Yes | Remote Cadence IC installation root. |
-| `SIM_MMSIM_ROOT` | Recommended | Remote Spectre/MMSIM installation root. |
-| `SIM_LM_LICENSE_FILE` | Site-dependent | Spectre license path; can be discovered from Virtuoso if blank. |
-| `SIM_CDS_LIC_FILE` | Site-dependent | Cadence license path; can be discovered from Virtuoso if blank. |
-| `SIM_PDK_IO_SPECTRE_INCLUDE` | Yes | T28 IO pad SPICE include. |
-| `SIM_PDK_CORE_SPECTRE_INCLUDE` | Yes | T28 core Spectre model include. |
-| `SIM_PDK_CORE_SPECTRE_SECTIONS` | Yes | Model sections, comma-separated. |
-| `AMS_OUTPUT_ROOT` | No | Shared output root; recommended: `<repo>/output`. |
-| `VB_DISABLE_CONTROL_MASTER` | Recommended on Windows | Set to `1` for Windows/OpenSSH jump-host setups. |
+```bash
+./.venv/bin/python ./t28-ioring/tools/t28_config_check.py
+```
 
-On Windows/OpenSSH jump-host setups, keep `VB_DISABLE_CONTROL_MASTER=1`; stale ControlMaster sockets can otherwise break Spectre file upload with `getsockname failed: Not a socket`.
+T28 setup is not read from skill-local `.env` files or project `.env` files. Do not edit `calibre/env_common.csh` or `calibre/site_local.csh` for local paths; Calibre receives a generated `site_local.csh` from `_local/site.yaml` at runtime.
 
-### 6. Start the bridge and load the Virtuoso daemon
+### 4. Start the bridge and load the Virtuoso daemon
 
 ```bash
 virtuoso-bridge start
@@ -239,28 +219,12 @@ An Agent setting up this repository should do the following, in order:
 2. Install `virtuoso-bridge-lite` editable into `.venv`.
 3. Install the shared root requirements file.
 4. Run `virtuoso-bridge init ...` if `~/.virtuoso-bridge/.env` is missing.
-5. Ask for and write generator values:
-   - `CDS_LIB_PATH_28`
-   - optional `VB_FS_MODE`
-   - optional `AMS_OUTPUT_ROOT`
-6. Ask for and write Calibre values:
-   - Cadence cshrc path
-   - Mentor cshrc path
-   - `MGC_HOME`
-   - `PDK_LAYERMAP_28`
-   - `incFILE_28`
-7. Ask for and write simulator values:
-   - `SIM_CDS_LIB`
-   - `SIM_IC_ROOT`
-   - `SIM_MMSIM_ROOT`
-   - `SIM_PDK_IO_SPECTRE_INCLUDE`
-   - `SIM_PDK_CORE_SPECTRE_INCLUDE`
-   - `SIM_PDK_CORE_SPECTRE_SECTIONS`
-   - license vars if not discoverable from Virtuoso
-8. Set `VB_DISABLE_CONTROL_MASTER=1` on Windows/OpenSSH jump-host setups.
-9. Start bridge, ask the user to load the daemon in Virtuoso CIW, then run `check_virtuoso_connection.py`.
+5. Copy `_local/site.yaml.template` to `_local/site.yaml`.
+6. Ask for and write generator mode, Calibre, Spectre, and simulator site values into `_local/site.yaml`.
+7. Run `tools/t28_config_check.py` and fix every reported missing value.
+8. Start bridge, ask the user to load the daemon in Virtuoso CIW, then run `check_virtuoso_connection.py`.
 
-Do not create a mandatory common `.env`. Generator and simulator settings are deliberately skill-local because their required site variables differ.
+Do not create skill-local `.env` files for T28 setup; T28 code does not read them. `_local/site.yaml` is the single Agent-facing T28 configuration entry point.
 
 ## Generator Workflow
 
@@ -422,13 +386,13 @@ Use `skills/t28-ioring-generator/T28_Testbench/golden_output/<case>/` as a refer
 | Skill does not trigger | Register `skills/` as skills root, or register/copy each child skill directly. |
 | `import virtuoso_bridge` fails | Run `pip install -e <project-root>/virtuoso-bridge-lite` inside the shared `.venv`. |
 | Virtuoso connection fails | Run `virtuoso-bridge status`; restart bridge; confirm daemon `.il` is loaded in CIW. |
-| DRC/LVS path errors | Check `CDS_LIB_PATH_28`, `VB_FS_MODE`, and generator `calibre/site_local.csh`. |
-| Calibre cannot find rules/includes | Check `MGC_HOME`, `PDK_LAYERMAP_28`, `incFILE_28`, and sourced Cadence/Mentor cshrc paths. |
-| Wrong output location | Set `AMS_OUTPUT_ROOT` in the relevant skill `.env`. |
-| Simulator cannot find cell/libs | Check `SIM_CDS_LIB` or fallback `CDS_LIB_PATH_28`. |
-| Spectre model missing | Check `SIM_PDK_IO_SPECTRE_INCLUDE`, `SIM_PDK_CORE_SPECTRE_INCLUDE`, and sections. |
-| Spectre license error | Set `SIM_LM_LICENSE_FILE` and `SIM_CDS_LIC_FILE`, or verify Virtuoso environment discovery. |
-| Spectre upload fails with `getsockname failed` | Set `VB_DISABLE_CONTROL_MASTER=1`. |
+| DRC/LVS path errors | Check `_local/site.yaml` fields `cadence.cds_lib_28` and `bridge.fs_mode`. |
+| Calibre cannot find rules/includes | Check `_local/site.yaml` fields under `calibre`. |
+| Wrong output location | Set `project.output_root` in `_local/site.yaml`. |
+| Simulator cannot find cell/libs | Check `_local/site.yaml` fields `cadence.cds_lib_28` and `cadence.ic_root`. |
+| Spectre model missing | Check `_local/site.yaml` fields under `spectre`. |
+| Spectre license error | Set `spectre.lm_license_file` and `spectre.cds_lic_file` in `_local/site.yaml`. |
+| Spectre upload fails with `getsockname failed` | Set `bridge.disable_control_master: true`. |
 | `/tmp/sim_io_spectre_setup.csh` missing | Current simulator verifies and retries the upload; rerun with `VB_DISABLE_CONTROL_MASTER=1` if SSH is unstable. |
 
 ## Related Documentation

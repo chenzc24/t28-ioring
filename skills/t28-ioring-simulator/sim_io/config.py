@@ -3,11 +3,26 @@
 from __future__ import annotations
 
 import os
+import sys
 from datetime import datetime
 from pathlib import Path
 
 
 SKILL_ROOT = Path(__file__).resolve().parent.parent
+
+
+def _apply_unified_site_config() -> None:
+    for candidate in [SKILL_ROOT, *SKILL_ROOT.parents]:
+        if (candidate / "skills").is_dir():
+            if str(candidate) not in sys.path:
+                sys.path.insert(0, str(candidate))
+            try:
+                from tools.t28_site_config import apply_site_config
+
+                apply_site_config(candidate, override=False, required=False)
+            except Exception:
+                pass
+            return
 
 
 def resolve_output_root() -> Path:
@@ -19,6 +34,8 @@ def resolve_output_root() -> Path:
     3. Repository root output when installed under <repo>/skills/<skill>
     4. Current working directory output
     """
+    _apply_unified_site_config()
+
     env_root = os.environ.get("AMS_OUTPUT_ROOT", "").strip()
     if env_root:
         return Path(env_root).expanduser().resolve(strict=False)
@@ -43,11 +60,6 @@ def latest_run_path() -> Path:
     return resolve_simulation_root() / ".latest_run"
 
 
-def legacy_latest_run_path() -> Path:
-    """Return the old SIM-IO marker path for read-only compatibility."""
-    return SKILL_ROOT / ".latest_run"
-
-
 def write_latest_run(run_dir: Path) -> None:
     """Write the latest-run marker under output/simulation."""
     marker = latest_run_path()
@@ -56,14 +68,10 @@ def write_latest_run(run_dir: Path) -> None:
 
 
 def read_latest_run() -> Path:
-    """Read the current run directory, accepting the old marker as fallback."""
+    """Read the current run directory from output/simulation/.latest_run."""
     marker = latest_run_path()
     if marker.exists():
         return Path(marker.read_text(encoding="utf-8").strip())
-
-    legacy_marker = legacy_latest_run_path()
-    if legacy_marker.exists():
-        return Path(legacy_marker.read_text(encoding="utf-8").strip())
 
     raise FileNotFoundError(
         ".latest_run not found - run symbol_export first or pass --run-dir"

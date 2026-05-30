@@ -42,11 +42,25 @@ SKILL_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 SCRIPTS_PATH="${SKILL_ROOT}/scripts"
 export PYTHONPATH="${SKILL_ROOT}:${PYTHONPATH:-}"
 
-if [ -n "${AMS_IO_AGENT_PATH:-}" ]; then WORK_ROOT="${AMS_IO_AGENT_PATH}"; else WORK_ROOT="$(pwd)"; fi
+# REPO_ROOT owns _local/site.yaml and tools/t28_config_export.py.
+REPO_ROOT="$(cd "${SKILL_ROOT}" && while [ ! -f tools/t28_config_export.py ] && [ "$(pwd)" != "/" ]; do cd ..; done; pwd)"
 
-if [ -z "${AMS_OUTPUT_ROOT:-}" ]; then
-  export AMS_OUTPUT_ROOT="${WORK_ROOT}/output"
+# VENV_ROOT may be the parent workspace that contains both t28-ioring/ and virtuoso-bridge-lite/.
+VENV_ROOT="$(cd "${SKILL_ROOT}" && while [ ! -d .venv ] && [ "$(pwd)" != "/" ]; do cd ..; done; pwd)"
+if   [ -f "${VENV_ROOT}/.venv/Scripts/python.exe" ]; then export AMS_PYTHON="${VENV_ROOT}/.venv/Scripts/python.exe"
+elif [ -f "${VENV_ROOT}/.venv/bin/python" ];         then export AMS_PYTHON="${VENV_ROOT}/.venv/bin/python"
+elif [ -f "${SKILL_ROOT}/.venv/Scripts/python.exe" ];   then export AMS_PYTHON="${SKILL_ROOT}/.venv/Scripts/python.exe"
+elif [ -f "${SKILL_ROOT}/.venv/bin/python" ];           then export AMS_PYTHON="${SKILL_ROOT}/.venv/bin/python"
+elif command -v python3 >/dev/null 2>&1;                then export AMS_PYTHON="python3"
+elif command -v python  >/dev/null 2>&1;                then export AMS_PYTHON="python"
+else echo "ERROR: No Python 3.9+ found."; return 1; fi
+
+if [ -f "${REPO_ROOT}/tools/t28_config_export.py" ]; then
+  eval "$("$AMS_PYTHON" "${REPO_ROOT}/tools/t28_config_export.py" --shell sh)"
 fi
+
+if [ -n "${AMS_IO_AGENT_PATH:-}" ]; then WORK_ROOT="${AMS_IO_AGENT_PATH}"; else WORK_ROOT="${REPO_ROOT}"; fi
+if [ -z "${AMS_OUTPUT_ROOT:-}" ]; then export AMS_OUTPUT_ROOT="${WORK_ROOT}/output"; fi
 mkdir -p "${AMS_OUTPUT_ROOT}/generated"
 
 if [ -n "${output_dir:-}" ] && [ -d "${output_dir}" ]; then
@@ -57,18 +71,6 @@ else
 fi
 mkdir -p "$output_dir"
 
-PROJECT_ROOT="$(cd "${SKILL_ROOT}" && while [ ! -d .venv ] && [ "$(pwd)" != "/" ]; do cd ..; done; pwd)"
-if   [ -f "${PROJECT_ROOT}/.venv/Scripts/python.exe" ]; then export AMS_PYTHON="${PROJECT_ROOT}/.venv/Scripts/python.exe"
-elif [ -f "${PROJECT_ROOT}/.venv/bin/python" ];         then export AMS_PYTHON="${PROJECT_ROOT}/.venv/bin/python"
-elif [ -f "${SKILL_ROOT}/.venv/Scripts/python.exe" ];   then export AMS_PYTHON="${SKILL_ROOT}/.venv/Scripts/python.exe"
-elif [ -f "${SKILL_ROOT}/.venv/bin/python" ];           then export AMS_PYTHON="${SKILL_ROOT}/.venv/bin/python"
-elif command -v python3 >/dev/null 2>&1;                then export AMS_PYTHON="python3"
-elif command -v python  >/dev/null 2>&1;                then export AMS_PYTHON="python"
-else echo "ERROR: No Python 3.9+ found."; return 1; fi
-
-[ -f "${SKILL_ROOT}/.env.local" ] && { set -a; . "${SKILL_ROOT}/.env.local"; set +a; }
-[ -f "${SKILL_ROOT}/.env" ] && { set -a; . "${SKILL_ROOT}/.env"; set +a; }
-
 [ "${AMS_DRAFT_EDITOR:-}" = "on" ] || export AMS_DRAFT_EDITOR="off"
 [ "${AMS_LAYOUT_EDITOR:-}" = "on" ] || export AMS_LAYOUT_EDITOR="off"
 ```
@@ -77,15 +79,13 @@ All subsequent commands use `$AMS_PYTHON`.
 
 Required generator configuration:
 
-- `CDS_LIB_PATH_28`
-- `VB_FS_MODE` if auto-detection is insufficient
-- Calibre site config in `calibre/site_local.csh` for DRC/LVS/PEX
+- `_local/site.yaml` at the repository root.
+- `~/.virtuoso-bridge/.env`, created by `virtuoso-bridge init`, for bridge connection values.
 
 Optional:
 
-- `AMS_OUTPUT_ROOT`
-- `AMS_DRAFT_EDITOR`
-- `AMS_LAYOUT_EDITOR`
+- `generator.draft_editor` in `_local/site.yaml`, exported as `AMS_DRAFT_EDITOR`
+- `generator.layout_editor` in `_local/site.yaml`, exported as `AMS_LAYOUT_EDITOR`
 
 ## Entry Points
 

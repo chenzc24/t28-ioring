@@ -73,7 +73,7 @@ def run_spectre_with_maestro_sync(
         deck_config.model_includes = sim_config_from_site(
             vdd_value=dut_context.vdd_value
         ).model_includes
-        print(f"[sim-config] Injected {len(deck_config.model_includes)} model includes from .env")
+        print(f"[sim-config] Injected {len(deck_config.model_includes)} model includes from site config")
 
     print(f"\n{'=' * 60}")
     print(f" Direct Spectre: {dut_context.lib}/{dut_context.tb_cell}")

@@ -44,9 +44,10 @@ def main():
         print(f"[ERROR] {info}")
         sys.exit(2)
 
-    # Set output root
-    os.environ.setdefault("AMS_OUTPUT_ROOT", str((Path(os.getcwd()) / "output").resolve(strict=False)))
+    # Set output root. resolve_output_root() applies _local/site.yaml first,
+    # then falls back to legacy env/cwd behavior.
     output_root = resolve_output_root()
+    os.environ.setdefault("AMS_OUTPUT_ROOT", str(output_root))
 
     # Parse arguments
     if len(sys.argv) < 3:

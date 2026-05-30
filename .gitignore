@@ -1,5 +1,8 @@
 /output/
 /todo/
+/_local/*
+!/_local/
+!/_local/site.yaml.template
 .env
 .env.local
 .latest_run
@@ -8,9 +11,3 @@ __pycache__/
 *.pyo
 skills/**/output/
 skills/**/.latest_run
-skills/**/.env
-skills/**/.env.local
-
-# User-specific site overrides (rarely needed)
-calibre/site_local.csh
-skills/**/calibre/site_local.csh

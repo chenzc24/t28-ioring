@@ -11,8 +11,11 @@
 # After installing, run:  virtuoso-bridge init && virtuoso-bridge start
 # See README.md > Prerequisites for full setup instructions.
 
-# Required by both skills for .env loading.
+# Required to read ~/.virtuoso-bridge/.env created by virtuoso-bridge init.
 python-dotenv>=1.0,<2.0
+
+# Required for unified _local/site.yaml configuration.
+PyYAML>=6.0,<7.0
 
 # Required by the generator for layout visualization.
 matplotlib>=3.5,<4.0

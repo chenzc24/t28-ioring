@@ -25,7 +25,7 @@ directly - specify measurement *intent* and let the code template generate corre
    `integ(pwr(...))` or `pwr()` yourself.
 
 5. **Do not specify model includes.** Leave `model_includes: []`. testbench_build injects them
-   automatically from `.env`.
+   automatically from `_local/site.yaml`.
 
 6. **Do not specify save_signals.** The code auto-determines the correct save level
    (`"all"` when current/power measurements are needed, `"allpub"` otherwise).
