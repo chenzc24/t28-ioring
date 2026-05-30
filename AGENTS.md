@@ -1,58 +1,93 @@
 # Agent Instructions
 
-This repository is a T28 IO ring generation skill. Treat core generation logic as
-high-risk: small edits can create invalid layouts, DRC/LVS failures, or process
-rule regressions.
+This repository is a T28 IO ring suite. It contains two preferred sibling skills under `skills/`:
 
-## Operating Principles
+- `t28-ioring-generator`
+- `t28-ioring-simulator`
 
-- Follow `SKILL.md` for workflow order, exit-code handling, and repair-loop
-  limits.
-- Read the relevant input JSON, generated artifacts, logs, and references before
-  editing files.
-- Preserve user intent: signal names, duplicates, side order, voltage domains,
-  and explicitly provided device hints.
-- Prefer the smallest repair at the earliest safe layer of the workflow.
-- Do not silently change device mapping, pin schema, corner/filler behavior,
-  domain-continuity rules, or DRC/LVS rule interpretation.
+Treat both workflows as high-risk EDA automation. Small changes can create invalid layouts, bad schematic connectivity, DRC/LVS failures, or misleading simulation results.
 
-## Failure Triage
+## Registration
 
-When a workflow step fails, classify the problem before editing:
+Prefer registering `skills/` as the Agent skills root, or copying/symlinking the two child skill folders into the normal skills root.
 
-1. User input or semantic intent issue
-2. Environment, bridge, Virtuoso, Calibre, or PDK configuration issue
-3. Generated JSON or generated `.il` issue
-4. Core engine, generator, or shared rule bug
+Do not register the repository root as a single skill. Use these explicit skill roots:
 
-Do not modify core code until input/config/generated-output causes have been
-ruled out with evidence.
+```text
+skills/t28-ioring-generator/
+skills/t28-ioring-simulator/
+```
 
-## Preferred Repair Order
+Root-level historical copies of generator code may be removed after migration. Agents must not rely on root-level `SKILL.md`, `scripts/`, `io_ring/`, `calibre/`, `references/`, `skill_code/`, or `T28_Testbench/`.
 
-1. Fix semantic intent JSON or draft intent data.
-2. Fix local configuration, environment paths, or bridge setup.
-3. Regenerate confirmed config.
-4. Regenerate schematic/layout `.il`.
-5. Only then consider engine, generator, or shared rule changes.
+## Output Rules
 
-For DRC/LVS failures, follow the Step 9/10 repair loops in `SKILL.md`. Prefer
-semantic intent or configuration fixes before pin-level or generator edits.
+Use the shared output root:
 
-## Core Code Guardrails
+```text
+${AMS_OUTPUT_ROOT}/generated/<timestamp>/
+${AMS_OUTPUT_ROOT}/simulation/<timestamp>/
+${AMS_OUTPUT_ROOT}/simulation/.latest_run
+${AMS_OUTPUT_ROOT}/drc/
+${AMS_OUTPUT_ROOT}/lvs/
+${AMS_OUTPUT_ROOT}/pex/
+```
 
-Core code includes:
+Generated files under `output/` are artifacts, not source of truth. It is acceptable to inspect and regenerate them. Do not patch generated files as the only fix unless the user explicitly asks for a one-off repair.
 
-- `scripts/enrich_intent.py`
-- `scripts/generate_layout.py`
-- `scripts/generate_schematic.py`
-- `scripts/build_confirmed_config.py`
-- `scripts/run_drc.py`, `scripts/run_lvs.py`, and `scripts/run_pex.py`
-- `skill_code/*.il`
-- reference files that affect device mapping, pin generation, corners, fillers,
-  domain continuity, or validation gates
+## Configuration
 
-Before editing core code, collect and report:
+Keep generator and simulator `.env` files separate.
+
+Generator-specific variables belong in `skills/t28-ioring-generator/.env`:
+
+```text
+CDS_LIB_PATH_28
+VB_FS_MODE
+AMS_DRAFT_EDITOR
+AMS_LAYOUT_EDITOR
+AMS_OUTPUT_ROOT
+```
+
+Simulator-specific variables belong in `skills/t28-ioring-simulator/.env`:
+
+```text
+SIM_CDS_LIB
+SIM_IC_ROOT
+SIM_MMSIM_ROOT
+SIM_LM_LICENSE_FILE
+SIM_CDS_LIC_FILE
+SIM_PDK_IO_SPECTRE_INCLUDE
+SIM_PDK_CORE_SPECTRE_INCLUDE
+SIM_PDK_CORE_SPECTRE_SECTIONS
+AMS_OUTPUT_ROOT
+VB_DISABLE_CONTROL_MASTER
+```
+
+The simulator may fall back from `SIM_CDS_LIB` to `CDS_LIB_PATH_28`. Do not introduce a mandatory common `.env` unless several more variables become genuinely shared.
+Use `VB_DISABLE_CONTROL_MASTER=1` on Windows/OpenSSH jump-host setups to avoid stale mux socket failures during direct Spectre uploads.
+
+## Generator Guardrails
+
+Follow `skills/t28-ioring-generator/SKILL.md` for workflow order, exit-code handling, and DRC/LVS repair-loop limits.
+
+Preserve user intent:
+
+- signal names
+- duplicates
+- side order
+- voltage domains
+- explicitly provided device hints
+
+Do not silently change:
+
+- device mapping
+- pin schema
+- corner or filler behavior
+- domain-continuity rules
+- DRC/LVS rule interpretation
+
+Before editing generator core code, collect:
 
 - failing command
 - failing step number
@@ -62,19 +97,83 @@ Before editing core code, collect and report:
 - why semantic-intent, generated-output, or configuration repair is insufficient
 - proposed minimal code change
 
-Stop and ask for confirmation before changing core algorithms, device maps, pin
-connection schemas, corner/filler insertion, continuity gates, or DRC/LVS rule
-interpretation.
+Core generator code includes:
 
-## Generated Files
+```text
+skills/t28-ioring-generator/scripts/enrich_intent.py
+skills/t28-ioring-generator/scripts/generate_layout.py
+skills/t28-ioring-generator/scripts/generate_schematic.py
+skills/t28-ioring-generator/scripts/build_confirmed_config.py
+skills/t28-ioring-generator/scripts/run_drc.py
+skills/t28-ioring-generator/scripts/run_lvs.py
+skills/t28-ioring-generator/scripts/run_pex.py
+skills/t28-ioring-generator/io_ring/
+skills/t28-ioring-generator/skill_code/
+skills/t28-ioring-generator/references/
+```
 
-- Generated files under `output/` are run artifacts, not source of truth.
-- It is acceptable to inspect and regenerate them.
-- Do not patch generated files as the only fix unless the user explicitly asks
-  for a one-off artifact repair.
+Prefer the earliest safe repair:
+
+1. semantic intent JSON or draft data
+2. local configuration and environment paths
+3. confirmed config regeneration
+4. schematic/layout SKILL regeneration
+5. core engine or generator code
+
+## Simulator Guardrails
+
+Follow `skills/t28-ioring-simulator/SKILL.md` for symbol export, pin intent authoring, testbench build, and Spectre run order.
+
+Do not skip the LLM authoring step for real validation:
+
+1. Read `references/pin_classification.md`.
+2. Read `<run_dir>/pin_info.json`.
+3. Write `<run_dir>/pin_classifications.json`.
+4. Read `references/sim_config_rules.md`.
+5. Write `<run_dir>/sim_config.json`.
+
+Treat these as high-risk simulator logic:
+
+```text
+skills/t28-ioring-simulator/sim_io/pin_types.py
+skills/t28-ioring-simulator/sim_io/flow.py
+skills/t28-ioring-simulator/sim_io/sim/
+skills/t28-ioring-simulator/sim_io/maestro/
+skills/t28-ioring-simulator/skill_code/
+skills/t28-ioring-simulator/references/pin_classification.md
+skills/t28-ioring-simulator/references/sim_config_rules.md
+```
+
+Before editing simulator core code, rule out:
+
+1. stale or missing `pin_classifications.json`
+2. stale or missing `sim_config.json`
+3. wrong `SIM_CDS_LIB` or `CDS_LIB_PATH_28`
+4. missing model include paths
+5. Virtuoso bridge or Spectre license/environment issues
+
+Simulation verification source is the direct Spectre route:
+
+```text
+sim_run_result.json
+measurements.json
+plots/
+spectre/spectre.out
+```
+
+Do not treat Maestro GUI state as the primary verification source for direct Spectre runs.
 
 ## Validation
 
-After any change, rerun the smallest relevant workflow step and report exact
-pass/fail status. For code changes, include the command that was run and the
-artifact path that proves the fix.
+After any code change, run the smallest relevant check and report the exact command and result.
+
+Recommended non-Virtuoso checks:
+
+```bash
+python skills/t28-ioring-simulator/scripts/symbol_export.py --help
+python skills/t28-ioring-simulator/scripts/tb_builder.py --help
+python skills/t28-ioring-simulator/scripts/spectre_runner.py --help
+python -c "import sim_io; import sim_io.flow; import sim_io.site_config"
+```
+
+Run bridge, Virtuoso, Calibre, or Spectre steps only when the environment is available and the user expects live EDA operations.

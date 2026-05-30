@@ -1,0 +1,9 @@
+# Python runtime dependencies for T28 IO Ring Simulator
+# Python 3.9+
+
+# Prerequisite: install virtuoso-bridge-lite from source in the shared project .venv.
+# It provides VirtuosoClient, SSH/file transfer helpers, and Spectre wrappers.
+#
+#   pip install -e /path/to/virtuoso-bridge-lite
+
+python-dotenv>=1.0,<2.0

@@ -1,9 +1,16 @@
 /output/
 /todo/
 .env
+.env.local
+.latest_run
 __pycache__/
 *.pyc
 *.pyo
+skills/**/output/
+skills/**/.latest_run
+skills/**/.env
+skills/**/.env.local
 
 # User-specific site overrides (rarely needed)
 calibre/site_local.csh
+skills/**/calibre/site_local.csh
