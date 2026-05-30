@@ -1,13 +1,17 @@
 # T28 IO Ring local site configuration template.
 #
-# Copy this file to `_local/site.yaml` and fill in site-specific values.
+# Copy this file to `_local/site.yaml` and adjust site-specific values as needed.
 # `_local/site.yaml` is ignored by git and is the primary configuration
 # entry point for both sibling skills.
+#
+# The values below are working defaults for the current EDA environment. They
+# are intentionally concrete so a copied config is usable before users replace
+# paths with their own site values.
 
 project:
   # Shared output root. Generator writes generated/drc/lvs/pex under this root;
   # simulator writes simulation/<timestamp> under this root.
-  output_root: E:/bridge-Agent-T28/t28-ioring/output
+  output_root: E:/bridge-demo/t28-ioring/output
 
 generator:
   # Optional UI modes. Use "on" to open the editor, "off" for batch runs.
@@ -23,28 +27,28 @@ bridge:
 
 cadence:
   # Remote Linux path to the T28 cds.lib.
-  cds_lib_28: /path/to/TSMC28/cds.lib
+  cds_lib_28: /home/chenzc_intern25/TSMC28/llm_IO/cds.lib
   # Remote Cadence IC root used for si netlist export.
-  ic_root: /path/to/cadence/IC618
+  ic_root: /home/cadence/ic618/IC618Hotfix4
   # Remote Spectre/MMSIM installation root.
-  mmsim_root: /path/to/cadence/SPECTRE
+  mmsim_root: /home/cadence/spectre/SPECTRE211Hotfix
   # Optional cshrc sourced before Calibre runs.
-  cadence_cshrc: /path/to/.cshrc.cadence
+  cadence_cshrc: /home/cshrc/.cshrc.cadence.IC618SP201
 
 calibre:
   # Remote Calibre install root.
-  mgc_home: /path/to/calibre
+  mgc_home: /home/mentor/calibre/calibre2022/aoj_cal_2022.1_36.16
   # Optional cshrc sourced before Calibre runs.
-  mentor_cshrc: /path/to/.cshrc.mentor
+  mentor_cshrc: /home/cshrc/.cshrc.mentor
   # Remote T28 stream layer map and LVS include/source-added file.
-  pdk_layermap_28: /path/to/tsmcN28.layermap
-  lvs_include_28: /path/to/Calibre/lvs/source.added
+  pdk_layermap_28: /home/process/tsmc28n/PDK_mmWave/iPDK_CRN28HPC+ULL_v1.8_2p2a_20190531/tsmcN28/tsmcN28.layermap
+  lvs_include_28: /home/process/tsmc28n/PDK_mmWave/iPDK_CRN28HPC+ULL_v1.8_2p2a_20190531/tsmcN28/../Calibre/lvs/source.added
 
 spectre:
   # T28 IO pad SPICE model include.
-  io_model_include: /path/to/tphn28hpcpgv18.spi
+  io_model_include: /home/process/tsmc28n/IO/tphn28hpcpgv18_170a/0971001_20180621/tphn28hpcpgv18_110a_spi/TSMCHOME/digital/Back_End/spice/tphn28hpcpgv18_110a/tphn28hpcpgv18.spi
   # T28 core Spectre model include and sections.
-  core_model_include: /path/to/crn28ull_model.scs
+  core_model_include: /home/process/tsmc28n/PDK_mmWave/iPDK_CRN28HPC+ULL_v1.8_2p2a_20190531/models/spectre/crn28ull_1d8_elk_v1d8_2p2_shrink0d9_embedded_usage.scs
   core_sections:
     - pre_simu
     - ttmacro_mos_moscap
@@ -54,5 +58,5 @@ spectre:
     - tt_r_metal
     - noise_worst
   # Required license variables used by netlist export and Spectre.
-  lm_license_file: 5280@license-host
-  cds_lic_file: 5280@license-host
+  lm_license_file: 5280@thu-han
+  cds_lic_file: 5280@thu-han
