@@ -575,7 +575,7 @@ def apply_ring_esd_override(instances: List[Dict[str, Any]], esd_signal: str) ->
 
 def run_gates(intent_graph: Dict[str, Any], semantic: Dict[str, Any],
               wiring: Dict[str, Any]) -> Dict[str, Any]:
-    """Run G1-G8. Returns dict of gate results. Raises GateError on hard fails."""
+    """Run G1-G12. Returns dict of gate results. Raises GateError on hard fails."""
 
     instances = intent_graph["instances"]
     ring = intent_graph["ring_config"]
@@ -710,6 +710,12 @@ def run_gates(intent_graph: Dict[str, Any], semantic: Dict[str, Any],
 
     # G10: Provider-consumer family consistency within each analog domain
     _check_family_consistency(semantic, wiring, results)
+
+    # G11: One and only one PVDD2POC per digital domain (extra VDDPST supplies use PVDD2DGZ)
+    _check_poc_per_domain(semantic, results)
+
+    # G12: The VSS ESD-bus supply cell matches its analog domain's voltage family
+    _check_esd_cell_family(semantic, results)
 
     return results
 
@@ -853,6 +859,47 @@ def _check_family_consistency(semantic: Dict[str, Any], wiring: Dict[str, Any],
             )
 
     results["G10_family_consistency"] = {"pass": True, "warnings": warnings}
+
+
+def _check_poc_per_domain(semantic: Dict[str, Any], results: Dict[str, Any]) -> None:
+    """G11: A digital domain holds exactly one PVDD2POC; further VDDPST supplies are PVDD2DGZ."""
+    counts = {}
+    for d_id, d in semantic.get("domains", {}).items():
+        if d.get("kind") != "digital":
+            continue
+        pocs = [i["position"] for i in semantic.get("instances", [])
+                if i.get("domain") == d_id and i.get("device") == "PVDD2POC"]
+        if len(pocs) > 1:
+            raise GateError(
+                f"G11: Digital domain '{d_id}' has {len(pocs)} PVDD2POC cells, expected one",
+                detail=f"PVDD2POC at {pocs}",
+                hint="Keep one PVDD2POC per digital domain and give the other VDDPST supply pads "
+                     "(same high_vdd name) device PVDD2DGZ.",
+                section="§5.3 (Step 2.2 Digital provider assignment)",
+            )
+        counts[d_id] = len(pocs)
+    results["G11_poc_per_domain"] = {"pass": True, "per_domain": counts}
+
+
+def _check_esd_cell_family(semantic: Dict[str, Any], results: Dict[str, Any]) -> None:
+    """G12: PVSS2AC belongs to core-voltage (AC) analog domains, PVSS2A to I/O-voltage (A) domains."""
+    ac_family = {"PVDD3AC", "PVSS3AC", "PVDD1AC", "PVSS1AC", "PDB3AC"}
+    a_family = {"PVDD3A", "PVSS3A", "PVDD1A", "PVSS1A"}
+    for d_id, d in semantic.get("domains", {}).items():
+        if d.get("kind") != "analog":
+            continue
+        members = [i for i in semantic.get("instances", []) if i.get("domain") == d_id]
+        devices = {i.get("device", "") for i in members}
+        for esd, wrong, right in (("PVSS2A", ac_family, "PVSS2AC"), ("PVSS2AC", a_family, "PVSS2A")):
+            if esd in devices and devices & wrong:
+                raise GateError(
+                    f"G12: Analog domain '{d_id}' uses {esd} with {sorted(devices & wrong)}",
+                    detail=f"{esd} at {[i['position'] for i in members if i.get('device') == esd]}",
+                    hint=f"Use {right} for the VSS ESD-bus supply in this domain; PVSS2AC serves core-voltage "
+                         f"(AC) domains and PVSS2A I/O-voltage (A) domains, and the two must not share a domain.",
+                    section="§5.8 (Ring ESD handling)",
+                )
+    results["G12_esd_cell_family"] = {"pass": True}
 
 
 def _strip_suffix(device: str) -> str:

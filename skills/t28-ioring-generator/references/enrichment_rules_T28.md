@@ -142,7 +142,7 @@ This section provides the rules the AI uses to decide each instance's `device`, 
 **Digital domain power/ground providers MUST be exactly 4 unique signal names:**
 - 1 low-voltage VDD provider signal name (device: `PVDD1DGZ`)
 - 1 low-voltage VSS provider signal name (device: `PVSS1DGZ`)
-- 1 high-voltage VDD provider signal name (device: `PVDD2POC`)
+- 1 high-voltage VDD provider signal name (device: `PVDD2POC` for exactly one pad; any further pads of that name use `PVDD2DGZ`)
 - 1 high-voltage VSS provider signal name (device: `PVSS2DGZ`)
 - **Note**: Each signal name can have multiple instances (pads), but only 4 unique signal names can be digital domain providers.
 
@@ -181,19 +181,20 @@ The four digital provider devices are mapped to user signals as follows:
 | Low-voltage digital power | `PVDD1DGZ` | One pad whose `device` is `PVDD1DGZ`; the signal name becomes `domains.<dig_id>.low_vdd` |
 | Low-voltage digital ground | `PVSS1DGZ` | One pad whose `device` is `PVSS1DGZ`; signal name becomes `low_vss` |
 | High-voltage digital power | `PVDD2POC` | One pad whose `device` is `PVDD2POC`; signal name becomes `high_vdd` |
+| Additional high-voltage digital power | `PVDD2DGZ` | Every further pad with the `high_vdd` name. Same pins as `PVDD2POC`, no POC generation (G11) |
 | High-voltage digital ground | `PVSS2DGZ` | One pad whose `device` is `PVSS2DGZ`; signal name becomes `high_vss` |
 
 **CRITICAL — User-Specified Digital Domain Provider Names**: If user explicitly specifies digital domain provider signal names in requirements (e.g., "Digital signals use digital domain voltage domain (VSS/IOVSS/IOVDDL/IOVDDH)"), MUST use those signal names — write them into the corresponding `domains.<dig_id>` fields and into the `name` of each provider instance. Do NOT use default names (VIOL/GIOL/VIOH/GIOH) when user specifies different names.
 
 **CRITICAL — Exactly One Provider Pair Per Voltage Level**: The digital domain MUST have exactly ONE pair of standard power/ground providers (`PVDD1DGZ`/`PVSS1DGZ`) and exactly ONE pair of high-voltage power/ground providers (`PVDD2POC`/`PVSS2DGZ`).
 - **Exactly ONE low-voltage provider pair**: One PVDD1DGZ + one PVSS1DGZ
-- **Exactly ONE high-voltage provider pair**: One PVDD2POC + one PVSS2DGZ
+- **Exactly ONE high-voltage provider pair**: One PVDD2POC + one PVSS2DGZ (as signal names; further VDDPST pads with the `high_vdd` name use `PVDD2DGZ`, see below)
 - **Total**: digital domain has exactly 2 provider pairs (one low + one high)
 - **CRITICAL — Exactly 4 Unique Signal Names**: The digital domain MUST have exactly 4 different signal names identified as digital voltage domain providers (one for each role). Multiple instances of the same signal name are allowed (e.g., multiple GIOL signals all using `PVSS1DGZ`), but only 4 unique signal names can be digital domain providers.
 
 **CRITICAL — Provider Signal Selection Rules**:
 - **Selection rule for multiple signals with identical digital domain names**: If multiple signals with the same digital domain provider name appear in the digital signal block, ALL of them within the digital block MUST use the same digital device type (e.g., all "GIOL" pads in the digital block use `PVSS1DGZ`).
-- **CRITICAL — Same name in digital block = Same device type**: Within the digital signal block, if multiple signals share the same name and that name is a digital domain provider, they MUST all use the same digital device. Do NOT mix device types (e.g., do NOT use PVSS1AC for one GIOL and PVSS1DGZ for another GIOL if both are in the digital block).
+- **CRITICAL — Same name in digital block = Same device type**: Within the digital signal block, if multiple signals share the same name and that name is a digital domain provider, they MUST all use the same digital device. **Exception — `high_vdd`:** a digital domain holds one and only one `PVDD2POC` (it generates the POC signal); every other pad with the `high_vdd` name uses `PVDD2DGZ`. The engine rejects a second `PVDD2POC` in a domain (G11). Do NOT mix device types (e.g., do NOT use PVSS1AC for one GIOL and PVSS1DGZ for another GIOL if both are in the digital block).
 - **Other occurrences handling**: Signals with digital domain provider names that appear OUTSIDE the digital signal block:
   - **If between analog signals**: apply Signal Name Context Classification (§5.2) — treat as analog (PVSS1AC/PVDD1AC).
   - **If within the digital signal block**: same digital device as other instances of the same name.
@@ -332,11 +333,14 @@ After deciding which signal is the provider for each domain, choose the device c
 
 **Device class by domain** (the ESD signal name may appear multiple times; classify each instance by the domain of its position):
 - **In the digital signal block**: device `PVSS1DGZ` (treat the ESD signal as the digital low-voltage VSS provider).
-- **In any analog voltage domain**: device `PVSS2A` (analog Ring ESD pad).
+- **In a core-voltage analog domain** (`PVDD3AC`/`PVSS3AC`, `PVDD1AC`/`PVSS1AC`, `PDB3AC`): device `PVSS2AC`.
+- **In an I/O-voltage analog domain** (`PVDD3A`/`PVSS3A`, `PVDD1A`/`PVSS1A`): device `PVSS2A`.
+- The two must not share a domain; the engine rejects `PVSS2A` beside AC cells and `PVSS2AC` beside A cells (G12).
+- A bonded `PVSS2AC` may also supply the global VSS bus without `global.ring_esd`: give it the `global.vss_ground` name (its VSS pin is its own name, so G4 requires the match).
 - **Same signal name across domains is expected**: e.g., a signal literally named `VSS` may appear both inside the digital block and inside one or more analog voltage domains. Device class is chosen per-instance by domain, NOT by signal name.
 
 **Set `global.ring_esd` to the ESD signal name in semantic intent.** The engine will:
-1. Wire PVSS2A's VSS pin to its own name (the ESD name) — already encoded in the wiring table.
+1. Wire the PVSS2A/PVSS2AC VSS pin to its own name (the ESD name) — already encoded in the wiring table.
 2. Override every other pad's VSS pin in the entire ring to point to the ESD signal name.
 
 (Both behaviors are mechanical and handled by the engine. The AI's only job is correct device classification per domain plus setting `global.ring_esd`.)
@@ -347,7 +351,7 @@ After deciding which signal is the provider for each domain, choose the device c
 
 ### 6.1 Invocation
 
-The engine consumes `io_ring_semantic_intent.json` (AI output) and produces `io_ring_intent_graph.json` (full pin-wired output). Gate check results (G1-G10) and ESD override info are printed to console.
+The engine consumes `io_ring_semantic_intent.json` (AI output) and produces `io_ring_intent_graph.json` (full pin-wired output). Gate check results (G1-G12) and ESD override info are printed to console.
 
 ```bash
 $AMS_PYTHON $SCRIPTS_PATH/enrich_intent.py \
@@ -399,6 +403,8 @@ Use overrides sparingly — they are an escape hatch, not a default tool. If you
 | `[ENGINE-GATE] G4` VSS inconsistency | Pads have different VSS labels | Should not happen with correct semantic intent — may be an engine bug |
 | `[ENGINE-GATE] G8` domain continuity warning | An analog domain has multiple non-contiguous blocks | Verify each block has its own provider pair, or re-classify |
 | `[ENGINE-GATE] G9` provider not found or wrong device | Domain provider name missing from instances, or uses non-provider device | Add instance with provider name + correct device (§5.5, §5.6) |
+| `[ENGINE-GATE] G11` more than one PVDD2POC | Two or more `PVDD2POC` pads in one digital domain | Keep one `PVDD2POC`; make the other `high_vdd` pads `PVDD2DGZ` (§5.3) |
+| `[ENGINE-GATE] G12` ESD cell family | `PVSS2A` in a core-voltage (AC) domain or `PVSS2AC` in an I/O-voltage (A) domain | Use `PVSS2AC` in AC domains and `PVSS2A` in A domains (§5.8) |
 | `[ENGINE-GATE] G10` family pairing warning | AC provider with A consumer (or vice versa) in same domain | Non-blocking warning. Default pairing is 1AC↔3AC, 1A↔3A. If the mix is user-specified, ignore the warning; otherwise change consumer to match provider family (§5.6). |
 
 Each engine error message includes the position, device, hint, and a `See: enrichment_rules_T28.md §X.Y` pointer back to the relevant rule.
@@ -415,15 +421,15 @@ Before emitting `io_ring_semantic_intent.json`, verify every check below. If any
 |---|-------|----------------|-------------|
 | SC1 | **Provider name exists** | Every `domains.<id>.vdd_provider` / `vss_provider` name appears as an instance `name` in `instances[]` | G9 |
 | SC2 | **Provider device is correct** | The instance named as provider in each analog domain uses a provider device (`PVDD3AC`/`PVSS3AC` or `PVDD3A`/`PVSS3A`), NOT a consumer or IO device | G9 |
-| SC3 | **Digital provider device matches role** | Instance named as `low_vdd` uses `PVDD1DGZ`; `low_vss` → `PVSS1DGZ`; `high_vdd` → `PVDD2POC`; `high_vss` → `PVSS2DGZ` | G9 |
+| SC3 | **Digital provider device matches role** | Instance named as `low_vdd` uses `PVDD1DGZ`; `low_vss` → `PVSS1DGZ`; `high_vdd` → `PVDD2POC` (one per domain; further `high_vdd` pads `PVDD2DGZ`); `high_vss` → `PVSS2DGZ` | G9, G11 |
 | SC4 | **Analog domain has both providers** | Each analog domain has both `vdd_provider` and `vss_provider` defined | (engine crash) |
 
 ### 7.2 Device-Domain Consistency
 
 | # | Check | What to verify | Engine gate |
 |---|-------|----------------|-------------|
-| SC5 | **Analog devices in analog domains** | `PDB3AC`, `PVDD*AC`, `PVSS*AC`, `PVDD*A`, `PVSS*A`, `PVSS2A` must have `domain` pointing to an analog domain (`kind: "analog"`) | (engine crash) |
-| SC6 | **Digital devices in digital domains** | `PDDW16SDGZ`, `PRUW08SDGZ`, `PVDD1DGZ`, `PVSS1DGZ`, `PVDD2POC`, `PVSS2DGZ` must have `domain` pointing to a digital domain (`kind: "digital"`) | (engine crash) |
+| SC5 | **Analog devices in analog domains** | `PDB3AC`, `PVDD*AC`, `PVSS*AC`, `PVDD*A`, `PVSS*A`, `PVSS2A`, `PVSS2AC` must have `domain` pointing to an analog domain (`kind: "analog"`) | (engine crash) |
+| SC6 | **Digital devices in digital domains** | `PDDW16SDGZ`, `PRUW08SDGZ`, `PVDD1DGZ`, `PVSS1DGZ`, `PVDD2POC`, `PVDD2DGZ`, `PVSS2DGZ` must have `domain` pointing to a digital domain (`kind: "digital"`) | (engine crash) |
 
 ### 7.3 Family Consistency
 
@@ -444,7 +450,7 @@ Before emitting `io_ring_semantic_intent.json`, verify every check below. If any
 
 After drafting the semantic intent JSON in memory, walk through SC1–SC11 before writing the file. The checks are fast (just lookups against your own data). If you catch an error here, you save an engine round-trip and produce correct output faster.
 
-**The engine will still run G1–G10 as a safety net** — the self-check is not a replacement for engine gates, it's a pre-filter that catches the most common mistakes before they reach the engine.
+**The engine will still run G1–G12 as a safety net** — the self-check is not a replacement for engine gates, it's a pre-filter that catches the most common mistakes before they reach the engine.
 
 ---
 
@@ -459,7 +465,7 @@ After drafting the semantic intent JSON in memory, walk through SC1–SC11 befor
 - [ ] Provider signals use power/ground devices (PVDD3AC/PVSS3AC or 3A variants), NOT IO devices, even if name suggests IO — G9
 - [ ] Digital IO instances have `direction` field set; non-digital-IO instances do not
 - [ ] User-specified device hints from Draft Editor and explicit prompt constraints are respected
-- [ ] Ring ESD: if user-declared, `global.ring_esd` is set; ESD instances use `PVSS2A` in analog domains and `PVSS1DGZ` in digital blocks
+- [ ] Ring ESD: if user-declared, `global.ring_esd` is set; ESD instances use `PVSS2AC` in core-voltage analog domains, `PVSS2A` in I/O-voltage analog domains (G12) and `PVSS1DGZ` in digital blocks
 
 ### AI Self-Check (§7 — run before writing semantic_intent.json)
 - [ ] SC1–SC4: Domain-instance consistency (provider names exist, correct devices)
@@ -476,6 +482,6 @@ After drafting the semantic intent JSON in memory, walk through SC1–SC11 befor
 - [ ] `global.vss_ground` set (default `"GIOL"` if no special override)
 
 ### Final Confirmation
-- [ ] Engine exits 0 (success, all G1–G10 pass)
+- [ ] Engine exits 0 (success, all G1–G12 pass)
 - [ ] Engine console output shows no domain-continuity warnings, or warnings are intentional
 - [ ] Step 4 `validate_intent.py` exits 0

@@ -579,6 +579,45 @@
       "device_cell": "PVDD2POC_V_G",
       "device_view": "symbol"
     },
+    "PVDD2DGZ_V_G": {
+      "center_x": 1.0,
+      "center_y": 0.5,
+      "pins": [
+        {
+          "name": "POC",
+          "x": 0.375,
+          "y": 1.0,
+          "original_side": "top"
+        },
+        {
+          "name": "VDD",
+          "x": 0.562,
+          "y": 1.0,
+          "original_side": "top"
+        },
+        {
+          "name": "VSS",
+          "x": 0.75,
+          "y": 1.0,
+          "original_side": "top"
+        },
+        {
+          "name": "VDDPST",
+          "x": 1.0,
+          "y": 0.0,
+          "original_side": "bottom"
+        },
+        {
+          "name": "VSSPST",
+          "x": 1.312,
+          "y": 1.0,
+          "original_side": "top"
+        }
+      ],
+      "device_lib": "tphn28hpcpgv18",
+      "device_cell": "PVDD2DGZ_V_G",
+      "device_view": "symbol"
+    },
     "PVDD2POC_H_G": {
       "center_x": 1.0,
       "center_y": 0.5,
@@ -616,6 +655,45 @@
       ],
       "device_lib": "tphn28hpcpgv18",
       "device_cell": "PVDD2POC_H_G",
+      "device_view": "symbol"
+    },
+    "PVDD2DGZ_H_G": {
+      "center_x": 1.0,
+      "center_y": 0.5,
+      "pins": [
+        {
+          "name": "POC",
+          "x": 0.375,
+          "y": 1.0,
+          "original_side": "top"
+        },
+        {
+          "name": "VDD",
+          "x": 0.562,
+          "y": 1.0,
+          "original_side": "top"
+        },
+        {
+          "name": "VSS",
+          "x": 0.75,
+          "y": 1.0,
+          "original_side": "top"
+        },
+        {
+          "name": "VDDPST",
+          "x": 1.0,
+          "y": 0.0,
+          "original_side": "bottom"
+        },
+        {
+          "name": "VSSPST",
+          "x": 1.312,
+          "y": 1.0,
+          "original_side": "top"
+        }
+      ],
+      "device_lib": "tphn28hpcpgv18",
+      "device_cell": "PVDD2DGZ_H_G",
       "device_view": "symbol"
     },
     "PVSS2DGZ_V_G": {
@@ -936,6 +1014,18 @@
       "device_cell": "PVSS2A_V_G",
       "device_view": "symbol"
     },
+    "PVSS2AC_V_G": {
+      "center_x": -0.219,
+      "center_y": 0.438,
+      "pins": [
+        {"name": "TACVDD", "x": -0.625, "y": 0.875, "original_side": "top"},
+        {"name": "VSS", "x": -0.188, "y": 0.0, "original_side": "bottom"},
+        {"name": "TACVSS", "x": -0.25, "y": 0.875, "original_side": "top"}
+      ],
+      "device_lib": "tphn28hpcpgv18",
+      "device_cell": "PVSS2AC_V_G",
+      "device_view": "symbol"
+    },
     "PVSS2A_H_G": {
       "center_x": -0.219,
       "center_y": 0.438,
@@ -946,6 +1036,18 @@
       ],
       "device_lib": "tphn28hpcpgv18",
       "device_cell": "PVSS2A_H_G",
+      "device_view": "symbol"
+    },
+    "PVSS2AC_H_G": {
+      "center_x": -0.219,
+      "center_y": 0.438,
+      "pins": [
+        {"name": "TACVDD", "x": -0.625, "y": 0.875, "original_side": "top"},
+        {"name": "VSS", "x": -0.188, "y": 0.0, "original_side": "bottom"},
+        {"name": "TACVSS", "x": -0.25, "y": 0.875, "original_side": "top"}
+      ],
+      "device_lib": "tphn28hpcpgv18",
+      "device_cell": "PVSS2AC_H_G",
       "device_view": "symbol"
     },
     "PVDD1DGZ_V_G": {
@@ -1552,7 +1654,71 @@
         "label_pattern": "POC"
       }
     },
+    "PVDD2DGZ_H_G": {
+      "VDDPST": {
+        "create_pin": true,
+        "create_wire": true,
+        "create_label": true,
+        "label_pattern": "{pad_name}"
+      },
+      "VSSPST": {
+        "create_pin": false,
+        "create_wire": true,
+        "create_label": true,
+        "label_pattern": "GIOH"
+      },
+      "VDD": {
+        "create_pin": false,
+        "create_wire": true,
+        "create_label": true,
+        "label_pattern": "VIOL"
+      },
+      "VSS": {
+        "create_pin": false,
+        "create_wire": true,
+        "create_label": true,
+        "label_pattern": "GIOL"
+      },
+      "POC": {
+        "create_pin": false,
+        "create_wire": true,
+        "create_label": true,
+        "label_pattern": "POC"
+      }
+    },
     "PVDD2POC_V_G": {
+      "VDDPST": {
+        "create_pin": true,
+        "create_wire": true,
+        "create_label": true,
+        "label_pattern": "{pad_name}"
+      },
+      "VSSPST": {
+        "create_pin": false,
+        "create_wire": true,
+        "create_label": true,
+        "label_pattern": "GIOH"
+      },
+      "VDD": {
+        "create_pin": false,
+        "create_wire": true,
+        "create_label": true,
+        "label_pattern": "VIOL"
+      },
+      "VSS": {
+        "create_pin": false,
+        "create_wire": true,
+        "create_label": true,
+        "label_pattern": "GIOL"
+      },
+      "POC": {
+        "create_pin": false,
+        "create_wire": true,
+        "create_label": true,
+        "label_pattern": "POC"
+      }
+    },
+    "PVDD2DGZ_V_G": {
       "VDDPST": {
         "create_pin": true,
         "create_wire": true,
@@ -1825,10 +1991,20 @@
       "TAVSS": {"create_pin": false, "create_wire": true, "create_label": true, "label_pattern": "VSSIB"},
       "TAVDD": {"create_pin": false, "create_wire": true, "create_label": true, "label_pattern": "VDDIB"}
     },
+    "PVSS2AC_H_G": {
+      "VSS": {"create_pin": true, "create_wire": true, "create_label": true, "label_pattern": "{pad_name}"},
+      "TACVSS": {"create_pin": false, "create_wire": true, "create_label": true, "label_pattern": "VSSIB"},
+      "TACVDD": {"create_pin": false, "create_wire": true, "create_label": true, "label_pattern": "VDDIB"}
+    },
     "PVSS2A_V_G": {
       "VSS": {"create_pin": true, "create_wire": true, "create_label": true, "label_pattern": "{pad_name}"},
       "TAVSS": {"create_pin": false, "create_wire": true, "create_label": true, "label_pattern": "VSSIB"},
       "TAVDD": {"create_pin": false, "create_wire": true, "create_label": true, "label_pattern": "VDDIB"}
+    },
+    "PVSS2AC_V_G": {
+      "VSS": {"create_pin": true, "create_wire": true, "create_label": true, "label_pattern": "{pad_name}"},
+      "TACVSS": {"create_pin": false, "create_wire": true, "create_label": true, "label_pattern": "VSSIB"},
+      "TACVDD": {"create_pin": false, "create_wire": true, "create_label": true, "label_pattern": "VDDIB"}
     }
   }
 }

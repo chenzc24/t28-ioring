@@ -60,6 +60,7 @@ class VoltageDomainHandler:
             "PVDD1DGZ_V_G", "PVDD1DGZ_H_G",
             "PVSS1DGZ_V_G", "PVSS1DGZ_H_G",
             "PVDD2POC_V_G", "PVDD2POC_H_G", "PVDD2POC",
+            "PVDD2DGZ_V_G", "PVDD2DGZ_H_G", "PVDD2DGZ",
             "PVSS2DGZ_V_G", "PVSS2DGZ_H_G", "PVSS2DGZ",
             "PCORNER_G"  # Digital corner
         ]
@@ -72,6 +73,7 @@ class VoltageDomainHandler:
             "PVDD1A_V_G", "PVDD1A_H_G", "PVDD1A",
             "PVSS1A_V_G", "PVSS1A_H_G", "PVSS1A",
             "PVSS2A_V_G", "PVSS2A_H_G", "PVSS2A",
+            "PVSS2AC_V_G", "PVSS2AC_H_G", "PVSS2AC",
             "PVDD3A_V_G", "PVDD3A_H_G",
             "PVSS3A_V_G", "PVSS3A_H_G",
             "PVDD3AC_V_G", "PVDD3AC_H_G",
@@ -148,6 +150,9 @@ class VoltageDomainHandler:
             "PVDD2POC_V_G": "DIGITAL_2",     # Digital domain 2
             "PVDD2POC_H_G": "DIGITAL_2",
             "PVDD2POC": "DIGITAL_2",
+            "PVDD2DGZ_V_G": "DIGITAL_2",
+            "PVDD2DGZ_H_G": "DIGITAL_2",
+            "PVDD2DGZ": "DIGITAL_2",
             "PVSS2DGZ_V_G": "DIGITAL_2",
             "PVSS2DGZ_H_G": "DIGITAL_2",
             "PVSS2DGZ": "DIGITAL_2",
@@ -171,6 +176,9 @@ class VoltageDomainHandler:
             "PVSS2A_V_G": "VDD3A_VSS3A",   # Ring ESD pad (cross-domain; fallback groups with 3A)
             "PVSS2A_H_G": "VDD3A_VSS3A",
             "PVSS2A": "VDD3A_VSS3A",
+            "PVSS2AC_V_G": "VDD3AC_VSS3AC",  # Global VSS ESD-bus supply, core-voltage domain
+            "PVSS2AC_H_G": "VDD3AC_VSS3AC",
+            "PVSS2AC": "VDD3AC_VSS3AC",
             "PVDD3A_V_G": "VDD3A_VSS3A",
             "PVDD3A_H_G": "VDD3A_VSS3A",
             "PVSS3A_V_G": "VDD3A_VSS3A",

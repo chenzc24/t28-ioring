@@ -139,7 +139,8 @@ class SchematicGenerator:
         elif device_type.startswith('PDDW16SDGZ') or device_type.startswith('PRUW08SDGZ'):  # Digital IO (PDDW16SDGZ default, PRUW08SDGZ alternative)
             offset = -5.5 * 0.125
         elif (device_type.startswith('PVDD1DGZ') or device_type.startswith('PVSS1DGZ') or 
-              device_type.startswith('PVDD2POC') or device_type.startswith('PVSS2DGZ')):  # Digital power/ground
+              device_type.startswith('PVDD2POC') or device_type.startswith('PVDD2DGZ') or
+              device_type.startswith('PVSS2DGZ')):  # Digital power/ground
             offset = -8 * 0.125
         else:  # Other analog power/ground devices
             offset = 1.5 * 0.125
