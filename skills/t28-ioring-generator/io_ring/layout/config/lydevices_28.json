@@ -70,6 +70,7 @@
     "PVDD1DGZ_V_G", "PVDD1DGZ_H_G",
     "PVSS1DGZ_V_G", "PVSS1DGZ_H_G",
     "PVDD2POC_V_G", "PVDD2POC_H_G",
+    "PVDD2DGZ_V_G", "PVDD2DGZ_H_G",
     "PVSS2DGZ_V_G", "PVSS2DGZ_H_G"
   ],
   "digital_io": [
@@ -80,6 +81,7 @@
     "PVDD1DGZ_V_G", "PVDD1DGZ_H_G",
     "PVSS1DGZ_V_G", "PVSS1DGZ_H_G",
     "PVDD2POC_V_G", "PVDD2POC_H_G",
+    "PVDD2DGZ_V_G", "PVDD2DGZ_H_G",
     "PVSS2DGZ_V_G", "PVSS2DGZ_H_G"
   ],
   "digital_pins":[
@@ -92,6 +94,7 @@
     "PVDD1A_V_G", "PVDD1A_H_G",
     "PVSS1A_V_G", "PVSS1A_H_G",
     "PVSS2A_V_G", "PVSS2A_H_G",
+    "PVSS2AC_V_G", "PVSS2AC_H_G",
     "PVDD3A_V_G", "PVDD3A_H_G",
     "PVSS3A_V_G", "PVSS3A_H_G",
     "PVDD3AC_V_G", "PVDD3AC_H_G",
@@ -106,6 +109,7 @@
     "PVDD1A_V_G", "PVDD1A_H_G",
     "PVSS1A_V_G", "PVSS1A_H_G",
     "PVSS2A_V_G", "PVSS2A_H_G",
+    "PVSS2AC_V_G", "PVSS2AC_H_G",
     "PVDD3A_V_G", "PVDD3A_H_G",
     "PVSS3A_V_G", "PVSS3A_H_G",
     "PVDD3AC_V_G", "PVDD3AC_H_G",

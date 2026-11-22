@@ -591,7 +591,71 @@ class DeviceTemplateManager:
                     'label_pattern': 'POC'  # POC
                 }
             },
+            'PVDD2DGZ_H_G': {
+                'VDDPST': {
+                    'create_pin': True,
+                    'create_wire': True,
+                    'create_label': True,
+                    'label_pattern': '{pad_name}'  # Use pad name as label
+                },
+                'VSSPST': {
+                    'create_pin': False,
+                    'create_wire': True,
+                    'create_label': True,
+                    'label_pattern': 'GIOH'  # Digital high voltage ground
+                },
+                'VDD': {
+                    'create_pin': False,
+                    'create_wire': True,
+                    'create_label': True,
+                    'label_pattern': 'VIOL'  # Digital low voltage power
+                },
+                'VSS': {
+                    'create_pin': False,
+                    'create_wire': True,
+                    'create_label': True,
+                    'label_pattern': 'GIOL'  # Digital low voltage ground
+                },
+                'POC': {
+                    'create_pin': False,
+                    'create_wire': True,
+                    'create_label': True,
+                    'label_pattern': 'POC'  # POC
+                }
+            },
             'PVDD2POC_V_G': {
+                'VDDPST': {
+                    'create_pin': True,
+                    'create_wire': True,
+                    'create_label': True,
+                    'label_pattern': '{pad_name}'  # Use pad name as label
+                },
+                'VSSPST': {
+                    'create_pin': False,
+                    'create_wire': True,
+                    'create_label': True,
+                    'label_pattern': 'GIOH'  # Digital high voltage ground
+                },
+                'VDD': {
+                    'create_pin': False,
+                    'create_wire': True,
+                    'create_label': True,
+                    'label_pattern': 'VIOL'  # Digital low voltage power
+                },
+                'VSS': {
+                    'create_pin': False,
+                    'create_wire': True,
+                    'create_label': True,
+                    'label_pattern': 'GIOL'  # Digital low voltage ground
+                },
+                'POC': {
+                    'create_pin': False,
+                    'create_wire': True,
+                    'create_label': True,
+                    'label_pattern': 'POC'  # POC
+                }
+            },
+            'PVDD2DGZ_V_G': {
                 'VDDPST': {
                     'create_pin': True,
                     'create_wire': True,
@@ -864,10 +928,20 @@ class DeviceTemplateManager:
                 'TAVSS': {'create_pin': False, 'create_wire': True, 'create_label': True, 'label_pattern': 'VSSIB'},
                 'TAVDD': {'create_pin': False, 'create_wire': True, 'create_label': True, 'label_pattern': 'VDDIB'}
             },
+            'PVSS2AC_H_G': {
+                'VSS': {'create_pin': True, 'create_wire': True, 'create_label': True, 'label_pattern': '{pad_name}'},
+                'TACVSS': {'create_pin': False, 'create_wire': True, 'create_label': True, 'label_pattern': 'VSSIB'},
+                'TACVDD': {'create_pin': False, 'create_wire': True, 'create_label': True, 'label_pattern': 'VDDIB'}
+            },
             'PVSS2A_V_G': {
                 'VSS': {'create_pin': True, 'create_wire': True, 'create_label': True, 'label_pattern': '{pad_name}'},
                 'TAVSS': {'create_pin': False, 'create_wire': True, 'create_label': True, 'label_pattern': 'VSSIB'},
                 'TAVDD': {'create_pin': False, 'create_wire': True, 'create_label': True, 'label_pattern': 'VDDIB'}
+            },
+            'PVSS2AC_V_G': {
+                'VSS': {'create_pin': True, 'create_wire': True, 'create_label': True, 'label_pattern': '{pad_name}'},
+                'TACVSS': {'create_pin': False, 'create_wire': True, 'create_label': True, 'label_pattern': 'VSSIB'},
+                'TACVDD': {'create_pin': False, 'create_wire': True, 'create_label': True, 'label_pattern': 'VDDIB'}
             }
         }
 

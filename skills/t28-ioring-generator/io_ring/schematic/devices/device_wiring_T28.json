@@ -115,6 +115,15 @@
         "TAVDD": {"label_from": "domain.vdd_provider"}
       }
     },
+    "PVSS2AC": {
+      "_comment": "Global VSS ESD-bus supply for a core-voltage (3AC/1AC) analog domain; PVSS2A is the I/O-voltage cell and must not share a domain with it. VSS = self; its core VSS pin joins the core VSS mesh, so the name must equal global.vss_ground (or global.ring_esd).",
+      "family": "analog_esd",
+      "pins": {
+        "VSS":    {"label_from": "self"},
+        "TACVSS": {"label_from": "domain.vss_provider"},
+        "TACVDD": {"label_from": "domain.vdd_provider"}
+      }
+    },
 
     "PVDD1DGZ": {
       "family": "digital_power_low",
@@ -137,6 +146,17 @@
       }
     },
     "PVDD2POC": {
+      "family": "digital_power_high",
+      "pins": {
+        "VDD":    {"label_from": "domain.low_vdd"},
+        "VSS":    {"label_from": "global.vss_ground"},
+        "VDDPST": {"label_from": "self"},
+        "VSSPST": {"label_from": "domain.high_vss"},
+        "POC":    {"label_from": "const.POC", "emit": true}
+      }
+    },
+    "PVDD2DGZ": {
+      "_comment": "Additional VDDPST (post-driver) supply without POC generation. Same pins as PVDD2POC; a digital domain keeps exactly one PVDD2POC and adds PVDD2DGZ under the same high_vdd name.",
       "family": "digital_power_high",
       "pins": {
         "VDD":    {"label_from": "domain.low_vdd"},

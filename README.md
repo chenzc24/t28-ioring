@@ -330,12 +330,14 @@ Generation and simulation are separate skills because they have different trigge
 | Analog power provider, alternate | `PVDD3A` / `PVSS3A` |
 | Analog power consumer | `PVDD1AC` / `PVSS1AC` |
 | Analog power consumer, alternate | `PVDD1A` / `PVSS1A` |
-| Ring ESD, analog | `PVSS2A` |
+| Ring ESD / global VSS supply, core-voltage analog domain | `PVSS2AC` |
+| Ring ESD / global VSS supply, I/O-voltage analog domain | `PVSS2A` |
 | Digital IO, default | `PDDW16SDGZ` |
 | Digital IO, alternate | `PRUW08SDGZ` |
 | Digital power, low VDD | `PVDD1DGZ` |
 | Digital ground, low VSS | `PVSS1DGZ` |
-| Digital power, high VDD | `PVDD2POC` |
+| Digital power, high VDD (one per digital domain, generates POC) | `PVDD2POC` |
+| Digital power, high VDD, further pads | `PVDD2DGZ` |
 | Digital ground, high VSS | `PVSS2DGZ` |
 | Digital corner | `PCORNER_G` |
 | Analog/mixed corner | `PCORNERA_G` |

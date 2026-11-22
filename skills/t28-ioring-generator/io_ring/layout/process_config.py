@@ -41,6 +41,7 @@ PROCESS_CONFIG = {
         "PVDD1DGZ": -8 * 0.125,  # Digital power/ground
         "PVSS1DGZ": -8 * 0.125,
         "PVDD2POC": -8 * 0.125,
+        "PVDD2DGZ": -8 * 0.125,
         "PVSS2DGZ": -8 * 0.125,
         "default": 1.5 * 0.125
     },
