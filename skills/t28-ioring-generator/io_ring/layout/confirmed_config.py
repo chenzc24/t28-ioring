@@ -137,7 +137,7 @@ def _prepare_t28_components(
         for comp in instances
     )
 
-    if has_input_fillers:
+    if has_input_fillers or not ring_config.get("auto_fill", True):
         all_components_with_fillers = instances
     else:
         validation_components = outer_pads + corners

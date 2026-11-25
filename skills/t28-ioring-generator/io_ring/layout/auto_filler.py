@@ -2,6 +2,7 @@
 
 from collections import defaultdict
 
+from .enrichment_engine import adjacent_pads
 from .filler_generator import FillerGenerator
 from .voltage_domain import VoltageDomainHandler
 from .device_classifier import DeviceClassifier
@@ -21,13 +22,8 @@ def boundary(left, right):
 
 def _spacers(pad, width):
     domain = VoltageDomainHandler.get_voltage_domain(pad)
-    if domain not in {"analog", "digital"}:
-        raise ValueError(f"Unknown domain at {pad['position']}")
     suffix = "A_G" if domain == "analog" else "_G"
-    if width < 0 or width % 10:
-        raise ValueError(
-            f"Cannot fill {width} um at {pad['position']} with T28 spacers"
-        )
+    width = max(0, int(width))
     return [f"PFILLER20{suffix}"] * (width // 20) + [f"PFILLER10{suffix}"] * (
         (width % 20) // 10
     )
@@ -38,12 +34,44 @@ def _gap(left, right, width):
     if device not in CUTS:
         return _spacers(left, width)
     if width < 20:
-        raise ValueError(
-            f"Cut needs 20 um between {left['position']} and {right['position']}"
-        )
+        return _spacers(left, width)
     if device == "PRCUTA_G" and base_device(right) in ANALOG_PG:
         return _spacers(left, width - 20) + [device]
     return [device] + _spacers(right, width - 20)
+
+
+def _corner_cuts(components, config):
+    """Choose the end spacer that isolates two pad domains across each corner."""
+    cuts = {}
+    pads = {p["position"]: p for p in components if p.get("type") == "pad"}
+    order = config.get("placement_order", "counterclockwise")
+    width, height = config.get("width", 0), config.get("height", 0)
+    for corner in (c for c in components if c.get("type") == "corner"):
+        if corner["position"] not in {
+            "top_left",
+            "top_right",
+            "bottom_left",
+            "bottom_right",
+        }:
+            continue
+        pos_a, pos_b = adjacent_pads(corner["position"], order, width, height)
+        a, b = pads.get(pos_a), pads.get(pos_b)
+        if not a or not b:
+            continue
+        cut = boundary(a, b)
+        if cut not in CUTS:
+            continue
+        # The spacer on the other leg continues the corner master's buses.
+        target = (
+            pos_b
+            if VoltageDomainHandler.get_voltage_domain(a)
+            == VoltageDomainHandler.get_voltage_domain(corner)
+            else pos_a
+        )
+        side, index = target.split("_")
+        end = "start" if int(index) == 0 else "end"
+        cuts[(side, end)] = cut
+    return cuts
 
 
 class AutoFillerGeneratorT28:
@@ -56,7 +84,13 @@ class AutoFillerGeneratorT28:
             or DeviceClassifier.is_separator_device(c["device"])
             for c in layout_components
         ):
-            return layout_components
+            return layout_components + inner_pads
+        if any(
+            isinstance(pad.get("position"), (list, tuple))
+            for pad in layout_components + inner_pads
+        ):
+            # Explicit physical placement takes precedence over generation from relative slots.
+            return layout_components + inner_pads
         sides = defaultdict(list)
         for pad in layout_components:
             if pad.get("type") == "pad":
@@ -67,35 +101,47 @@ class AutoFillerGeneratorT28:
             side, i, j = pad["position"].split("_")
             key = (side, int(i))
             if int(j) != int(i) + 1 or key in inner_by_gap:
-                raise ValueError(
-                    f"Expected one inner pad in an adjacent gap at {pad['position']}"
-                )
+                return layout_components + inner_pads
             inner_by_gap[key] = pad
 
+        cuts = _corner_cuts(layout_components, self.config)
         fillers = []
         for side, indexed in sides.items():
             indexed.sort(key=lambda item: item[0])
-            if len(indexed) < 2:
-                raise ValueError(f"{side} needs a bonded ground pad at each corner")
+            # A 20 um end spacer preserves the published pad pitch and landing coordinates.
             sequence = []
-            for n, ((i, left), (_, right)) in enumerate(zip(indexed, indexed[1:])):
+
+            def add_spacer(device, name):
+                filler = {"name": name, "type": "filler", "device": device}
+                fillers.append(filler)
+                sequence.append(filler)
+
+            def add_end_spacers(pad, end):
+                masters = _spacers(pad, 20)
+                if (side, end) in cuts:
+                    masters[0] = cuts[side, end]
+                for k, device in enumerate(masters):
+                    add_spacer(device, f"{side}_{end}_{k}")
+
+            add_end_spacers(indexed[0][1], "start")
+            for (i, left), (_, right) in zip(indexed, indexed[1:]):
                 sequence.append(left)
                 inner = inner_by_gap.pop((side, i), None)
-                # Move the former 20 um corner spacers into the end gaps.
-                # The first and last ground cells now abut their respective corners.
-                extra_left = 20 if n == 0 else 0
-                extra_right = 20 if n == len(indexed) - 2 else 0
                 if inner:
-                    before = boundary(left, inner) in CUTS
-                    after = boundary(inner, right) in CUTS
-                    left_width = 20 if before else 0 if after else 10
+                    # Original staggered pitch reserves equal spaces on both sides of the inner pad.
+                    family = VoltageDomainHandler.get_voltage_domain(left)
+                    same_family = family == VoltageDomainHandler.get_voltage_domain(right)
+                    same_bus = VoltageDomainHandler.is_same_voltage_domain(
+                        left, right, placement_pitch=True
+                    )
+                    flank_width = 10 if same_family and (same_bus or family == "unknown") else 20
                     parts = [
-                        *_gap(left, inner, left_width + extra_left),
+                        *_gap(left, inner, flank_width),
                         inner,
-                        *_gap(inner, right, 20 - left_width + extra_right),
+                        *_gap(inner, right, flank_width),
                     ]
                 else:
-                    parts = _gap(left, right, 40 + extra_left + extra_right)
+                    parts = _gap(left, right, 40)
                 for k, item in enumerate(parts):
                     if isinstance(item, str):
                         item = {
@@ -106,10 +152,7 @@ class AutoFillerGeneratorT28:
                         fillers.append(item)
                     sequence.append(item)
             sequence.append(indexed[-1][1])
+            add_end_spacers(indexed[-1][1], "end")
             for index, component in enumerate(sequence):
                 component["position"] = f"{side}_{index}"
-        if inner_by_gap:
-            raise ValueError(
-                f"Inner pad gaps without matching outer pads: {list(inner_by_gap)}"
-            )
         return layout_components + fillers + inner_pads

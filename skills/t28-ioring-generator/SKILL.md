@@ -9,6 +9,10 @@ Generate T28 IO ring schematic/layout artifacts from requirements and verify the
 
 Use this skill for generation. Use `t28-ioring-simulator` for testbench construction, pin stimulus/load placement, Spectre, and Maestro setup.
 
+## Design choices
+
+Use the application note and the bundled checks as recommendations. Preserve user-selected masters, nets, placements and verification settings. Record deviations in the run report and continue the requested stages. A user can start from a semantic plan, an edited intent graph or a confirmed layout.
+
 ## Output Contract
 
 Use one shared output root:
@@ -68,14 +72,14 @@ Write:
 {output_dir}/io_ring_intent_graph_draft.json
 ```
 
-The draft JSON must contain only structural data:
+For a new draft, start with the structural fields:
 
 - `ring_config`
 - instance `name`
 - instance `position`
 - instance `type`
 
-Do not add `device`, `pin_connection`, `direction`, or generated corners in the draft.
+When an input already specifies devices or wiring, keep those choices in the semantic plan or resolved graph.
 
 ## Step 2: Optional Draft Editor
 
@@ -105,7 +109,7 @@ Write semantic intent:
 {output_dir}/io_ring_semantic_intent.json
 ```
 
-Semantic intent must include per-instance device/domain/direction decisions but must not include generated corners or `_H_G` / `_V_G` device suffixes.
+The usual semantic plan supplies pad masters, domains and IO directions. Explicit corners and `_H_G` / `_V_G` device suffixes take precedence over automatic choices.
 
 For the normal headless flow, compile the semantic intent in one command (from the repository root).
 
@@ -113,7 +117,7 @@ For the normal headless flow, compile the semantic intent in one command (from t
 python skills/t28-ioring-generator/scripts/prepare_ring.py io_ring_semantic_intent.json
 ```
 
-Each invocation creates its own run directory and prints the path to `run.json`. Read the manifest for the input digest, generated filenames, gate results and pending integration measurements. A failed stage returns nonzero. A prepared run resumes at Step 7 if live OA execution was requested. If an editor or an existing intermediate file is involved, use the individual stages below.
+Each invocation creates its own run directory and prints the path to `run.json`. Read the manifest for the input digest, generated filenames, design recommendations and pending integration measurements. A failed stage returns nonzero. A prepared run resumes at Step 7 if live OA execution was requested. If an editor or an existing intermediate file is involved, use the individual stages below.
 
 Run the enrichment engine:
 
@@ -129,7 +133,6 @@ Exit handling:
 - `0`: proceed.
 - `1`: semantic input error; read stderr, fix semantic intent, rerun.
 - `2`: engine/wiring bug; stop and report.
-- `3`: gate failure; fix semantic classification and rerun.
 
 ## Step 4: Validate Intent JSON
 
@@ -140,7 +143,7 @@ $AMS_PYTHON "$SCRIPTS_PATH/validate_intent.py" "$output_dir/io_ring_intent_graph
 Exit handling:
 
 - `0`: proceed.
-- `1`: invalid output; report as engine or schema bug unless input was manually edited.
+- Design findings appear in the output and generation continues.
 - `2`: file not found.
 
 ## Step 5: Build Confirmed Config
@@ -179,7 +182,7 @@ The scripts add timestamps to output filenames. Use the actual printed paths in 
 $AMS_PYTHON "$SCRIPTS_PATH/check_virtuoso_connection.py"
 ```
 
-If this fails, stop. Report generated files so far and instruct the user to start or repair Virtuoso bridge connectivity.
+If the GUI bridge is unavailable, use the configured batch Virtuoso workflow when available, or report which live stages could not execute.
 
 ## Step 8: Execute SKILL in Virtuoso
 
@@ -198,14 +201,7 @@ If a generated `.il` fails, read `references/skill_language_reference.md` before
 $AMS_PYTHON "$SCRIPTS_PATH/run_drc.py" "$lib" "$cell" layout T28
 ```
 
-On failure, follow the repair loop:
-
-1. Read the DRC report.
-2. Map errors to continuity, classification, device mapping, pin config, corner typing, or order.
-3. Prefer semantic intent/config fixes before generator code edits.
-4. Regenerate and rerun.
-
-Maximum two repair attempts.
+Record the DRC count and scope. Continue with LVS or other stages requested by the user. If a design change is requested, inspect the rule and coordinates before changing the layout.
 
 ## Step 10: Run LVS
 
@@ -215,7 +211,7 @@ Record the library, cell, view and source netlist for this comparison. When chec
 $AMS_PYTHON "$SCRIPTS_PATH/run_lvs.py" "$lib" "$cell" layout T28 --intent "$output_dir/io_ring_confirmed.json"
 ```
 
-Each DRC/LVS invocation records `result.json` and raw summaries in a unique directory under the corresponding verification root. LVS uses literal power/ground virtual connects and requires a correct comparison and zero ERC results. Investigate each remaining marker using its location and root cause. A rename experiment can isolate name sensitivity. It does not waive residual violations.
+Each invocation records raw summaries and result.json in its own directory. The exit code indicates whether execution and report collection completed. Report the DRC count, LVS comparison and ERC counts separately. The default LVS wrapper virtually connects listed supply rails. Supply a local wrapper with --deck to use the project’s own verification settings.
 
 For chip DRC, pass `--chip-deck /eda/path/to/release_matched_full_chip_deck` to `run_drc.py` and select the chip top. Review the effective deck and any foundry-specific exclusions. Refer to the chip integration evidence in `references/enrichment_rules_T28.md` before reporting chip signoff.
 
@@ -225,12 +221,12 @@ For chip DRC, pass `--chip-deck /eda/path/to/release_matched_full_chip_deck` to 
 $AMS_PYTHON "$SCRIPTS_PATH/run_pex.py" "$lib" "$cell" layout T28
 ```
 
-Run PEX only after LVS is clean or when the user explicitly asks.
+Run PEX when requested. Include the latest LVS comparison as context.
 
 ## Completion Checklist
 
 - [ ] All user signals preserved, including duplicates.
-- [ ] Draft JSON contains only structural fields.
+- [ ] The generated design preserves supplied placement, device and wiring choices.
 - [ ] Semantic intent follows `enrichment_rules_T28.md`.
 - [ ] Enrichment engine exits `0`.
 - [ ] `validate_intent.py` exits `0`.

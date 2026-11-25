@@ -59,7 +59,7 @@ def resolve_confirmed_config_path(config_path: Path, consume_confirmed_only: boo
         return config_path
 
     expected_confirmed = config_path.with_name(f"{config_path.stem}_confirmed.json")
-    if expected_confirmed.exists():
+    if expected_confirmed.exists() and expected_confirmed.stat().st_mtime_ns > config_path.stat().st_mtime_ns:
         return expected_confirmed
 
     # Build confirmed config if not exists

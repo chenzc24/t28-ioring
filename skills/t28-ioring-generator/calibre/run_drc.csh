@@ -230,7 +230,11 @@ pwd
 
 echo "LM_LICENSE_FILE: $LM_LICENSE_FILE"
 
-$MGC_HOME/bin/calibre -drc -hier -turbo -turbo_litho -hyper -nowait $tmpRuleFile
+set run_options = (-turbo -turbo_litho -hyper)
+if ( $?AMS_CALIBRE_THREADS ) then
+    set run_options = (-turbo "$AMS_CALIBRE_THREADS")
+endif
+$MGC_HOME/bin/calibre -drc -hier $run_options -nowait $tmpRuleFile
 if ( $status != 0 ) then
     echo "Error: Calibre DRC failed."
     exit 1

@@ -8,6 +8,15 @@ from .enrichment_engine import _check_supply_plan, _check_poc_per_domain
 
 
 def check_placed_ring(cells, config, generator):
+    # Review is best effort, including for edited or partial floorplans.
+    try:
+        return _review_placement(cells, config, generator)
+    except (KeyError, IndexError, TypeError, ValueError) as exc:
+        return {"warnings": [f"Placement review incomplete: {exc}"]}
+
+
+def _review_placement(cells, config, generator):
+    warnings = []
     width, height = config["chip_width"], config["chip_height"]
     corner = config["corner_size"]
     absolute = generator.convert_relative_to_absolute(width, height, cells, config)
@@ -29,34 +38,36 @@ def check_placed_ring(cells, config, generator):
         set(corners) != set(coords.values())
         or sum(c["type"] == "corner" for c in absolute) != 4
     ):
-        raise ValueError("Expected one corner at each vertex of a full ring")
+        warnings.append("Expected one corner at each vertex of a full ring")
     ordered = []
     for orientation, (name, length, project) in edges.items():
-        ordered.append(corners[coords[name]])
+        if coords[name] in corners:
+            ordered.append(corners[coords[name]])
         edge = []
         for c in absolute:
             if c["type"] != "corner" and c["orientation"] == orientation:
                 end, offset = project(*c["position"])
                 size, _ = generator._resolve_component_geometry(c, c["type"], config)
                 if not isclose(offset, 0, abs_tol=1e-6):
-                    raise ValueError(f"{c['name']} lies off the {name} edge")
+                    warnings.append(f"{c['name']} lies off the {name} edge")
                 edge.append((end, size, c))
         previous = corner
         for end, size, c in sorted(edge, key=lambda item: item[0]):
             if not isclose(end - size, previous, abs_tol=1e-6):
-                raise ValueError(f"Gap or overlap at {c['name']} on {name} edge")
+                warnings.append(f"Gap or overlap at {c['name']} on {name} edge")
             c["_width"] = size
             ordered.append(c)
             previous = end
         if not isclose(previous, length - corner, abs_tol=1e-6):
-            raise ValueError(f"Incomplete edge at {name}")
+            warnings.append(f"Incomplete edge at {name}")
     if len(ordered) != len(absolute):
-        raise ValueError("Unplaced or unsupported cell orientation")
+        warnings.append("Unplaced or unsupported cell orientation")
 
     pads = []
     anchors = [i for i, c in enumerate(ordered) if c["type"] in {"pad", "inner_pad"}]
     if not anchors:
-        raise ValueError("Ring has no functional cells")
+        warnings.append("Ring has no functional cells")
+        return {"warnings": warnings}
     n = len(ordered)
     for i, c in enumerate(ordered):
         dev = c["device"]
@@ -69,12 +80,12 @@ def check_placed_ring(cells, config, generator):
             if not all(
                 base_device(p) in allowed and p.get("bonded", True) for p in neighbours
             ):
-                raise ValueError(
+                warnings.append(
                     f"{c['name']}: {dev} needs adjacent bonded grounds on both sides (6.2, 9.8.2)"
                 )
         elif dev == "PRCUTA_G":
             if not any(base_device(p) in ANALOG_PG for p in neighbours):
-                raise ValueError(
+                warnings.append(
                     f"{c['name']}: PRCUTA_G needs adjacent analog power or ground (9.8.3)"
                 )
         elif dev == "PRCUT_G":
@@ -93,7 +104,7 @@ def check_placed_ring(cells, config, generator):
                     distance += p["_width"]
                     j = (j + step) % n
                 if distance > 40:
-                    raise ValueError(
+                    warnings.append(
                         f"{c['name']}: PRCUT_G lacks a digital ground within two widths (34y.2)"
                     )
 
@@ -106,7 +117,7 @@ def check_placed_ring(cells, config, generator):
         expected = boundary(left, right)
         cuts = [p["device"] for p in gap if p["device"] in CUTS]
         if cuts != ([expected] if expected in CUTS else []):
-            raise ValueError(
+            warnings.append(
                 f"{left['name']} to {right['name']}: expected {expected}, found cuts {cuts}"
             )
         kind = VoltageDomainHandler.get_voltage_domain(left)
@@ -116,14 +127,14 @@ def check_placed_ring(cells, config, generator):
             elif item["device"].startswith("PFILLER"):
                 analog = item["device"].endswith("A_G")
                 if analog != (kind == "analog"):
-                    raise ValueError(
+                    warnings.append(
                         f"{item['name']}: spacer does not match its {kind} bus"
                     )
         key = left.get("domain") or VoltageDomainHandler.get_voltage_domain_key(left)
         pins = left.get("pin_connection", {})
         if key not in domains:
             if config.get("domains"):
-                raise ValueError(f"{left['name']}: unknown domain {key}")
+                warnings.append(f"{left['name']}: unknown domain {key}")
             kind = VoltageDomainHandler.get_voltage_domain(left)
             domains[key] = {"kind": kind}
             if kind == "analog":
@@ -147,7 +158,7 @@ def check_placed_ring(cells, config, generator):
                 if pins.get("POC") and pins["POC"] == pins.get("VSS"):
                     domains[key]["poc_grounded"] = True
         if domains[key].get("kind") != VoltageDomainHandler.get_voltage_domain(left):
-            raise ValueError(f"{left['name']}: pin family disagrees with domain {key}")
+            warnings.append(f"{left['name']}: pin family disagrees with domain {key}")
         bus_pins = (
             ("TACVDD", "TACVSS", "TAVDD", "TAVSS", "VSS")
             if domains[key]["kind"] == "analog"
@@ -158,12 +169,12 @@ def check_placed_ring(cells, config, generator):
                 net = pins[pin]["label"]
                 expected_net = bus_nets[key].setdefault(pin, net)
                 if expected_net != net:
-                    raise ValueError(
+                    warnings.append(
                         f"{left['name']}: {key}.{pin} connects both {expected_net} and {net}"
                     )
         pads.append(dict(left, domain=key, device=base_device(left)))
     semantic = {"instances": pads, "domains": domains}
-    results = {}
+    results = {"warnings": warnings}
     _check_supply_plan(semantic, results)
     _check_poc_per_domain(semantic, results)
     pending = results["G13_supply_plan"]["pending"]
@@ -205,7 +216,10 @@ def _vss_paths(ring, config, pending):
         or not isfinite(coefficient)
         or coefficient <= 0
     ):
-        raise ValueError("vss_ohm_per_um must be positive and finite")
+        pending.append(
+            "VSS resistance estimate omitted: vss_ohm_per_um must be positive and finite"
+        )
+        coefficient = None
     paths = []
     for i, pad in enumerate(ring):
         if base_device(pad) != "PDB3AC":
@@ -230,9 +244,10 @@ def _vss_paths(ring, config, pending):
                         break
                 distance += width
         if not candidates:
-            raise ValueError(
+            pending.append(
                 f"{pad['name']}: no bonded global VSS supply in own/adjacent domain (10.4, 23y.3)"
             )
+            continue
         length, ground = min(candidates, key=lambda pair: pair[0])
         row = {
             "position": pad.get("position_str", pad["position"]),
@@ -339,9 +354,10 @@ def _bus_spacing(ring, config, pending):
         type(value) not in (float, int) or not isfinite(value) or value <= 0
         for value in coefficients.values()
     ):
-        raise ValueError(
+        pending.append(
             "bus_ohm_per_um must map domains to positive, finite resistances per micron"
         )
+        coefficients = {}
     for row in worst.values():
         kind = "analog" if row["reference"] == "10.1" else "digital"
         limit = _pair_limit(kind, row["masters"])

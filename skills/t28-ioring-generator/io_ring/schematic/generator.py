@@ -696,7 +696,7 @@ class SchematicGenerator:
                 create_wire = pin_cfg.get('create_wire', default_config['create_wire'])
                 create_label = pin_cfg.get('create_label', default_config['create_label'])
                 # Stream-out exposes the top-level POC rail text as a cell terminal.
-                poc_terminal = device.startswith("PVDD2POC_") and pin["name"] == "POC"
+                poc_terminal = device.startswith("PVDD2POC_") and pin["name"] == "POC" and bool(pin_label)
                 create_pin = pin_cfg.get("create_pin", default_config["create_pin"] or poc_terminal)
                 
                 if not (create_wire or create_label or create_pin):

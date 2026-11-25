@@ -2,9 +2,11 @@
 
 Work from the signal list, package bond map, supply specification and placement order. Give every position its own identity. Preserve duplicate signal names and explicit assignments through both rows of a staggered ring. An unresolved voltage or domain assignment belongs in the planning report. Ask the designer when existing inputs cannot resolve a decision that changes connectivity.
 
+The checks produce advisory findings. Each designer controls the device, wiring and placement. Explicit pin_connection entries and per-position pin_overrides take precedence over default wiring and the suggested global VSS. Confirmed geometry can be edited directly. Use ring_config.auto_fill=false or auto_corners=false to author placement. Automatic placement defaults to the historical 20 µm corner spacers.
+
 ## Input fields
 
-Partial example showing field shapes. A complete ring also needs the bonded counts and neighbours below.
+Partial example showing field shapes. The supply counts and neighbour checks below are planning recommendations.
 
 ```json
 {
@@ -34,23 +36,23 @@ Partial example showing field shapes. A complete ring also needs the bonded coun
 }
 ```
 
-| Field | Required | Type | Notes |
+| Field | Used for | Type | Notes |
 |-------|----------|------|-------|
-| `schema_version` | Yes | string | `"1.0"` |
-| `tech_node` | Yes | string | `"T28"` |
+| `schema_version` | Optional | string | `"1.0"` |
+| `tech_node` | Optional | string | `"T28"` |
 | `ring_config.width` / `height` | Yes | int | > 0 |
 | `ring_config.placement_order` | Yes | string | `"clockwise"` or `"counterclockwise"` |
 | `instances[].name` | Yes | string | Signal name (preserve `<>` bus notation) |
-| `instances[].position` | Yes | string | `{side}_{idx}` for outer pads; `{side}_{idx1}_{idx2}` (idx1<idx2) for inner pads |
-| `instances[].type` | Yes | string | `"pad"` or `"inner_pad"` only |
-| `instances[].device` | Yes | string | Base device name (e.g. `"PDB3AC"`) — **do NOT include `_H_G` or `_V_G` suffix** |
-| `instances[].domain` | Yes | string | Domain ID; must exist in `domains{}` |
-| `instances[].direction` | Required for `PDDW16SDGZ`/`PRUW08SDGZ` | string | `"input"` or `"output"` |
-| `domains[].kind` | Yes | string | `"analog"` or `"digital"` |
+| `instances[].position` | Yes | string | `{side}_{idx}` for outer pads; `{side}_{idx1}_{idx2}` for inner pads |
+| `instances[].type` | Optional | string | Defaults to `pad`. Plans may also supply inner pads, corners, fillers and separators. |
+| `instances[].device` | Yes | string | A base name such as `PDB3AC` selects its orientation-specific master automatically. An explicit master keeps its suffix. |
+| `instances[].domain` | Default wiring | string | Domain ID used to resolve provider nets |
+| `instances[].direction` | Default digital IO wiring | string | `"input"` or `"output"` |
+| `domains[].kind` | Domain recommendations | string | `"analog"` or `"digital"` |
 | `domains[].vdd_provider` / `vss_provider` | Analog domains | string | Signal name appearing in instances |
 | `domains[].low_vdd` / `low_vss` / `high_vdd` / `high_vss` | Digital domains | string | The four rail roles. Use a common ground with PVSS3DGZ. |
-| `global.vss_ground` | Yes | string | Universal VSS label (default `"GIOL"`) |
-| `global.ring_esd` | No | string or null | If set, ring-wide ESD signal name (overrides every pad's VSS) |
+| `global.vss_ground` | Optional | string | Universal VSS label (default `"GIOL"`) |
+| `global.ring_esd` | No | string or null | If set, ring-wide ESD signal name (explicit pad VSS assignments take precedence) |
 | `overrides` | No | object | Per-position pin label overrides — see §6.2 |
 
 

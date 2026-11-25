@@ -9,6 +9,8 @@ Build a simulation testbench around an existing Virtuoso DUT cell and optionally
 
 This skill is the simulation sibling of `t28-ioring-generator`. Use the generator to create the IO ring schematic/layout; use this simulator on the generated or any existing schematic cell.
 
+Explicit user pin assignments, voltages and analysis settings take precedence over the examples. Partial classifications use the existing defaults for other pins.
+
 ## Output Contract
 
 Use one shared output root:
@@ -170,7 +172,7 @@ Output:
 <run_dir>/result.json
 ```
 
-The builder rejects a missing or mismatched pin classification before it edits the testbench. Inspect a partially built view and use explicit cleanup only when appropriate.
+The builder uses supplied classifications for matching pins and reports where it uses defaults. Inspect a partially built view and use explicit cleanup only when appropriate.
 
 ## Step 4: Direct Spectre Simulation with Maestro Sync
 

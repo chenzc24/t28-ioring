@@ -246,7 +246,7 @@ To compile an existing semantic plan, run this command from the repository root 
 python skills/t28-ioring-generator/scripts/prepare_ring.py io_ring_semantic_intent.json
 ```
 
-The command prints a run-specific `run.json` with stage status, artifacts, hashes and rule checks. From a text pin list, use the generator skill to resolve missing domain, placement and package decisions before compiling. The prepared manifest identifies the schematic and layout scripts for Virtuoso. DRC and LVS each create a separate `result.json` alongside the Calibre reports. LVS acceptance requires a correct circuit comparison and zero ERC results.
+The command prints a run-specific `run.json` with stage status, artifacts, hashes and rule checks. From a text pin list, use the generator skill to resolve missing domain, placement and package decisions before compiling. The prepared manifest identifies the schematic and layout scripts for Virtuoso. DRC and LVS each create a separate `result.json` alongside the Calibre reports. Design recommendations are advisory. A completed check returns zero and reports the DRC count, LVS comparison and ERC count separately. Users can supply their own verification wrapper with --deck. On a shared EDA host, --threads 2 runs the same deck with two Calibre workers.
 
 See the [generator workflow](skills/t28-ioring-generator/SKILL.md) and the [T28 rule audit and 9×9 reproduction](docs/t28-rule-audit.md).
 

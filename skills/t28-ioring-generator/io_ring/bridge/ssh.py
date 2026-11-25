@@ -179,43 +179,33 @@ def _upload_calibre_tree(ssh, calibre_dir: Path, remote_base: str, timeout: int 
     # Windows temp-file ACL issues, antivirus locks, and paths with spaces.
     _staging = Path(os.environ.get("AMS_OUTPUT_ROOT", os.getcwd())) / ".calibre_staging"
     _staging.mkdir(parents=True, exist_ok=True)
-    tmp_path = _staging / f"calibre_upload_{os.getpid()}.tar.gz"
-    tmp_path.write_bytes(buf.read())
+    from tempfile import NamedTemporaryFile
 
+    with NamedTemporaryFile(dir=_staging, prefix="calibre_upload_", suffix=".tar.gz", delete=False) as archive:
+        tmp_path = Path(archive.name)
+        archive.write(buf.getbuffer())
+
+    remote_tar = f"{remote_base}/{tmp_path.name}"
     try:
-        # upload_file() streams via `tar cf - <file> | ssh "tar xf - -C <dir>"`
-        # so the remote file ends up at <remote_base>/<tmp_filename>.
-        remote_tar_name = tmp_path.name
-        up = ssh.upload_file(tmp_path, f"{remote_base}/{remote_tar_name}", timeout=timeout)
-        rc = getattr(up, "returncode", 1)
-        if rc != 0:
-            err = (getattr(up, "stderr", "") or "").strip()
-            return f"tarball upload failed: {err}"
-
-        # Unpack on remote (retry on transient failures)
-        remote_tar = f"{remote_base}/{remote_tar_name}"
-        max_retries = 3
-        last_err = ""
-        for attempt in range(1, max_retries + 1):
+        max_attempts = 3
+        for attempt in range(1, max_attempts + 1):
             try:
-                unpack = ssh.run_command(
-                    f"mkdir -p {shlex.quote(remote_base)} && "
-                    f"tar xzf {shlex.quote(remote_tar)} -C {shlex.quote(remote_base)}",
-                    timeout=60,
-                )
-                if getattr(unpack, "returncode", 1) == 0:
-                    # Clean up remote tarball
-                    ssh.run_command(f"rm -f {shlex.quote(remote_tar)}", timeout=10)
+                transfer = ssh.upload_file(tmp_path, remote_tar, timeout=timeout)
+                if transfer.returncode == 0:
+                    transfer = ssh.run_command(
+                        f"tar xzf {shlex.quote(remote_tar)} -C {shlex.quote(remote_base)} && "
+                        f"rm -f {shlex.quote(remote_tar)}",
+                        timeout=timeout,
+                    )
+                if transfer.returncode == 0:
                     return None
-                last_err = (getattr(unpack, "stderr", "") or "").strip()
-            except Exception as e:
-                last_err = str(e)
-            if attempt < max_retries:
-                wait = min(5 * (2 ** (attempt - 1)), 30)
-                print(f"[upload_calibre_tree] unpack attempt {attempt}/{max_retries} failed: {last_err[:200]}")
-                _time.sleep(wait)
-
-        return f"remote unpack failed after {max_retries} attempts: {last_err}"
+                error = (transfer.stderr or "").strip()
+            except Exception as exc:
+                error = str(exc)
+            if attempt < max_attempts:
+                print(f"[upload_calibre_tree] attempt {attempt}/{max_attempts}: {error[:200]}")
+                _time.sleep(5 * attempt)
+        return f"Calibre archive transfer failed after {max_attempts} attempts: {error}"
     finally:
         tmp_path.unlink(missing_ok=True)
 
@@ -382,6 +372,8 @@ def execute_csh_script(script_path: str, *args, timeout: int = 600) -> str:
 
     # Build env args for `env` command (explicit, works regardless of login shell)
     env_parts = []
+    if threads := os.environ.get("AMS_CALIBRE_THREADS"):
+        env_parts.append(f"AMS_CALIBRE_THREADS={shlex.quote(threads)}")
     if remote_ams_root:
         env_parts.append(f"AMS_OUTPUT_ROOT={shlex.quote(remote_ams_root)}")
     if cds_lib:

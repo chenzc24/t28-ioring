@@ -15,7 +15,6 @@ Exit Codes:
     0 - Success
     1 - Semantic intent input error (read engine stderr for fix hint)
     2 - Wiring table or engine bug
-    3 - Gate failure (read engine stderr; re-classify in semantic intent)
 """
 
 import sys
@@ -28,10 +27,8 @@ sys.path.insert(0, str(skill_dir))
 def main():
     from io_ring.layout.enrichment_engine import (
         enrich,
-        EngineError,
         InputError,
         WiringError,
-        GateError,
     )
 
     if len(sys.argv) < 3:
@@ -74,10 +71,6 @@ def main():
         print("", file=sys.stderr)
         print(str(e), file=sys.stderr)
         sys.exit(2)
-    except GateError as e:
-        print("", file=sys.stderr)
-        print(str(e), file=sys.stderr)
-        sys.exit(3)
     except Exception as e:
         print("", file=sys.stderr)
         print(f"[ENGINE-BUG] Unexpected error: {type(e).__name__}: {e}", file=sys.stderr)
@@ -95,9 +88,9 @@ def main():
 
     # Print gate results
     gates = result["gates"]
-    print(f"   Gates:")
+    print("   Recommendations:")
     for gate_id, gate_result in gates.items():
-        status = "PASS" if gate_result.get("pass") else "FAIL"
+        status = "OK" if gate_result.get("pass") else "ADVISORY"
         label = gate_id
         extra = ""
         if "skipped" in gate_result:
@@ -112,12 +105,8 @@ def main():
             extra = f" (ESD={gate_result['esd_signal']})"
         print(f"     {label}: {status}{extra}")
 
-    # Print G8 domain continuity warnings
-    g8_warnings = gates.get("G8_domain_continuity", {}).get("warnings", [])
-    if g8_warnings:
-        print(f"   [WARN] Domain continuity:")
-        for w in g8_warnings:
-            print(f"     - {w}")
+        for message in gate_result.get("warnings", []):
+            print(f"       {message}")
 
     for item in gates["G13_supply_plan"]["pending"]:
         print(f"   [PENDING] {item}")

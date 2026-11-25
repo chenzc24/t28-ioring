@@ -89,7 +89,7 @@ class VoltageDomainHandler:
             return "unknown"
     
     @staticmethod
-    def get_voltage_domain_key(component: dict) -> str:
+    def get_voltage_domain_key(component: dict, *, placement_pitch=False) -> str:
         """Get the voltage domain key of the component, used to determine if it's the same voltage domain"""
         # If the component has pin_connection, determine from pin_connection
         if "pin_connection" in component:
@@ -106,6 +106,8 @@ class VoltageDomainHandler:
                 # Digital domain, determine based on VDD/VSS label
                 vdd_label = pin_connection.get("VDD", {}).get("label", "")
                 vss_label = pin_connection.get("VSS", {}).get("label", "")
+                if placement_pitch:
+                    return f"DIGITAL_{vdd_label}_{vss_label}"
                 high_vdd = pin_connection.get("VDDPST", {}).get("label")
                 high_vss = pin_connection.get("VSSPST", {}).get("label", vss_label)
                 return repr(("digital", vdd_label, vss_label, high_vdd, high_vss))
@@ -206,13 +208,13 @@ class VoltageDomainHandler:
         return False
     
     @staticmethod
-    def is_same_voltage_domain(component1: dict, component2: dict) -> bool:
+    def is_same_voltage_domain(component1: dict, component2: dict, *, placement_pitch=False) -> bool:
         """Determine if two components belong to the same voltage domain"""
         # Use get_voltage_domain_key to get the voltage domain key for comparison
-        if component1.get("domain") and component2.get("domain"):
+        if not placement_pitch and component1.get("domain") and component2.get("domain"):
             return component1["domain"] == component2["domain"]
-        key1 = VoltageDomainHandler.get_voltage_domain_key(component1)
-        key2 = VoltageDomainHandler.get_voltage_domain_key(component2)
+        key1 = VoltageDomainHandler.get_voltage_domain_key(component1, placement_pitch=placement_pitch)
+        key2 = VoltageDomainHandler.get_voltage_domain_key(component2, placement_pitch=placement_pitch)
         
         # If the two key values are the same and not unknown, they belong to the same voltage domain
         if key1 == key2 and key1 != "unknown":
