@@ -278,14 +278,7 @@ def _detect_fs_mode(ssh, local_ams_root: str) -> str:
 
 def _download_calibre_output(ssh, remote_root: str, local_root: str, timeout: int = 180,
                             max_retries: int = 2, retry_delay: int = 10) -> Optional[str]:
-    """Pull `drc/` and `lvs/` subtrees and top-level `*_report*` files from
-    `remote_root` back to `local_root`. Returns None on success, or an error
-    string. Missing remote subdirs are silently skipped.
-
-    Retries up to ``max_retries`` times when downloaded directories are empty,
-    to handle Calibre writing summary files with a slight delay after the csh
-    script returns.
-    """
+    """Fetch the analysis directories produced by this isolated invocation."""
     import time as _time
 
     local_root_p = Path(local_root).expanduser().resolve(strict=False)
@@ -294,7 +287,7 @@ def _download_calibre_output(ssh, remote_root: str, local_root: str, timeout: in
     for attempt in range(1, max_retries + 2):          # 1 initial + max_retries
         try:
             listing = ssh.run_command(
-                f"ls -d {shlex.quote(remote_root)}/drc {shlex.quote(remote_root)}/lvs 2>/dev/null",
+                f"ls -d {shlex.quote(remote_root)}/drc {shlex.quote(remote_root)}/lvs {shlex.quote(remote_root)}/pex 2>/dev/null",
                 timeout=60,
             )
             present = [
@@ -318,17 +311,7 @@ def _download_calibre_output(ssh, remote_root: str, local_root: str, timeout: in
             except Exception as e:
                 return f"download {remote_dir} failed: {e}"
 
-        # Verify that at least one summary file landed in each subdirectory.
-        all_ok = True
-        for subdir in ("drc", "lvs"):
-            local_sub = local_root_p / subdir
-            if local_sub.is_dir():
-                has_content = any(local_sub.iterdir())
-                if not has_content:
-                    all_ok = False
-                    break
-
-        if all_ok:
+        if present and all(any((local_root_p / Path(p).name).iterdir()) for p in present):
             return None
 
         # Empty directory detected — retry after a short wait.
@@ -337,7 +320,7 @@ def _download_calibre_output(ssh, remote_root: str, local_root: str, timeout: in
                   f"output dirs empty, waiting {retry_delay}s before retry...")
             _time.sleep(retry_delay)
 
-    return None
+    return "No Calibre output downloaded"
 
 
 def execute_csh_script(script_path: str, *args, timeout: int = 600) -> str:
@@ -366,7 +349,8 @@ def execute_csh_script(script_path: str, *args, timeout: int = 600) -> str:
         return _run_local_csh(script_path, args, timeout)
 
     # ── Resolve user-scoped remote base (avoids /tmp collision on shared servers) ─
-    remote_base = _get_calibre_remote_base()
+    from uuid import uuid4
+    remote_base = f"{_get_calibre_remote_base()}/{uuid4().hex}"
 
     # ── Upload all calibre scripts as a single tarball ─────────────────────────
     upload_err = _upload_calibre_tree(ssh, calibre_dir, remote_base, timeout=120)
@@ -385,7 +369,7 @@ def execute_csh_script(script_path: str, *args, timeout: int = 600) -> str:
 
     if mode == "remote":
         remote_ams_root = f"{remote_base}/output_{cell_tag}"
-        ssh.run_command(f"mkdir -p {shlex.quote(remote_ams_root)}/drc {shlex.quote(remote_ams_root)}/lvs", timeout=10)
+
         print(f"[execute_csh_script] fs_mode=remote  remote AMS_OUTPUT_ROOT={remote_ams_root}")
     else:
         remote_ams_root = local_ams_root
@@ -437,7 +421,7 @@ def execute_csh_script(script_path: str, *args, timeout: int = 600) -> str:
             ssh, remote_ams_root, local_ams_root, timeout=max(60, min(timeout, 300))
         )
         if dl_err:
-            print(f"[execute_csh_script] warn: {dl_err}")
+            return f"Remote output download failed: {dl_err}"
 
     if rc == 0:
         return stdout or "t"

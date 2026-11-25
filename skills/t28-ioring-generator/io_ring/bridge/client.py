@@ -207,63 +207,12 @@ def _scp_upload(local_path: str, remote_path: str) -> bool:
 
 
 def load_skill_file(file_path: str, timeout: int = 60) -> bool:
-    """Upload the .il file to the remote server (if SSH tunnel active) and load it
-    in Virtuoso CIW. Returns True on success.
+    """Use one checked upload/load. Retrying a partial SKILL program can duplicate geometry."""
+    result = _get_client().load_il(str(Path(file_path).resolve()), timeout=timeout)
+    if not result.ok:
+        print(f"Virtuoso load failed: {result.errors}")
+    return result.ok and (result.output or "").strip() == "t"
 
-    Three-phase approach for reliability on Windows:
-    1. Upload via VirtuosoClient.load_il() (daemon handles SSH upload + load).
-    2. If daemon upload fails, use scp (ControlMaster=no) as fallback upload,
-       then load via direct execute_skill('load(...)').
-    3. If scp also fails, try rb_exec('load(...)') as last resort using whatever
-       file exists on the remote (previously uploaded or scp'd).
-
-    Safety measures against stale remote files:
-    - Fix B: Cleans up old .il files from the remote directory before uploading.
-    - Fix A: Uses unique remote filenames (timestamp+UUID) so each task gets
-      an isolated path.
-    """
-    # Fix B: Clean up stale .il files from previous tasks
-    _cleanup_remote_il_files()
-
-    # Upload the .il file directly — the generator already adds a timestamp
-    # to the filename, so no need for a separate timestamped local copy.
-    src = Path(file_path).resolve()
-
-    remote_dir = _get_remote_bridge_dir()
-    remote_file = f"{remote_dir}/{src.name}"
-
-    try:
-        # Phase 1: Try daemon upload + load
-        client = _get_client()
-        result = client.load_il(str(src), timeout=timeout)
-        if getattr(result, "ok", False):
-            return True
-    except Exception:
-        pass
-
-    # Phase 2: Daemon upload failed — use scp fallback + direct load
-    if _scp_upload(str(src), remote_file):
-        try:
-            client = _get_client()
-            load_cmd = f'load("{remote_file}")'
-            result2 = client.execute_skill(load_cmd, timeout=timeout)
-            if getattr(result2, "ok", False):
-                return True
-        except Exception:
-            pass
-
-    # Phase 3: Last resort — try rb_exec which uses the VirtuosoClient
-    # TCP socket directly (bypasses SSH upload entirely)
-    try:
-        client = _get_client()
-        load_result = client.execute_skill(f'load("{remote_file}")', timeout=timeout)
-        resp = getattr(load_result, "response", "") or str(load_result)
-        if resp.strip().lower() == "t":
-            return True
-    except Exception:
-        pass
-
-    return False
 
 
 def save_current_cellview(timeout: int = 30) -> bool:

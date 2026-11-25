@@ -143,6 +143,11 @@ class InnerPadHandler:
             sanitized_name = self.sanitize_skill_instance_name(f"inner_pad_{name}_{position_str}")
             sanitized_pad_name = self.sanitize_skill_instance_name(f"inner_pad60nu_{name}_{position_str}")
             skill_commands.append(f'dbCreateParamInstByMasterName(cv "{library_name}" "{device}" "{view_name}" "{sanitized_name}" list({x} {y}) "{orientation}")')
+            if not inner_pad.get("bonded", True):
+                continue
+            from .voltage_domain import VoltageDomainHandler
+            if VoltageDomainHandler.get_voltage_domain(inner_pad) == "analog":
+                pad60nu_master = device_masters.get("analog_pad60nu_master", pad60nu_master)
             skill_commands.append(f'dbCreateParamInstByMasterName(cv "{pad_library}" "{pad60nu_master}" "layout" "{sanitized_pad_name}" list({x} {y}) "{orientation}")')
         
         return skill_commands

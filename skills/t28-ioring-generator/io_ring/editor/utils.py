@@ -92,7 +92,7 @@ def export_to_editor_json(
     preserved_fields = [
         "view_name", "domain", "pad_width", "pad_height",
         "pin_connection", "direction", "voltage_domain",
-        "orientation"
+        "orientation", "bonded", "macro", "package_pin", "drive_factor"
     ]
 
     # 3. Convert Components

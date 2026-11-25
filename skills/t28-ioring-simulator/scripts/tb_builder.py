@@ -8,7 +8,7 @@ Steps 4a-d:
   4d. Place sources, loads, PVSS, GND_REF; set CDF parameters
 
 Reads pin_classifications.json written by the LLM after symbol_export.
-Falls back to heuristic classification if the file is absent (warning only).
+Requires complete pin intent before editing the testbench.
 
 Usage:
     python scripts/tb_builder.py                       # uses .latest_run
@@ -70,7 +70,7 @@ def run_tb_builder(
 
     Returns (labels, sources, classifications, classif_result).
 
-    On failure, attempts to clean up the partially-created _tb cellview.
+    A failed build leaves the cellview available for inspection.
     """
     if client is None:
         client = VirtuosoClient.from_env()
@@ -80,7 +80,6 @@ def run_tb_builder(
     tb_cell = dut_context.tb_cell
     pins = dut_context.pins
     vdd_value = dut_context.vdd_value
-    require_configured_library_mapping(client, lib)
 
     # Load LLM classifications from run_dir/pin_classifications.json
     classif_result: ClassificationResult | None = load_llm_result(
@@ -89,35 +88,35 @@ def run_tb_builder(
     from sim_io.pin_types import build_classification_map
     classifications = build_classification_map(classif_result) if classif_result else {}
 
+    expected = {p.name for p in pins}
+    if not expected or classif_result is None or (classif_result.lib and classif_result.lib != lib):
+        raise ValueError(f"Missing or mismatched pin classifications for {lib}/{primary_cell}")
+    if set(classifications) != expected or len(classifications) != len(classif_result.pins):
+        raise ValueError(f"Pin classifications differ from exported pins: missing={expected - set(classifications)}, "
+                         f"extra={set(classifications) - expected}. Check duplicate entries.")
+    require_configured_library_mapping(client, lib)
+
     print(f"\n{'='*60}")
     print(f" TB Builder: {lib}/{tb_cell}  (LLM={bool(classifications)})")
     print(f"{'='*60}\n")
 
-    try:
-        # Step 4a: Create _tb cellview
-        create_tb_cellview(client, lib, primary_cell)
+    # Step 4a: Create _tb cellview
+    create_tb_cellview(client, lib, primary_cell)
 
-        # Step 4b: Place DUT instance
-        place_dut(client, lib, tb_cell, primary_cell)
+    # Step 4b: Place DUT instance
+    place_dut(client, lib, tb_cell, primary_cell)
 
-        # Step 4c: Add wire labels on DUT pins
-        labels = add_wire_labels(client, lib, tb_cell, pins, result=classif_result) if pins else []
+    # Step 4c: Add wire labels on DUT pins
+    labels = add_wire_labels(client, lib, tb_cell, pins, result=classif_result) if pins else []
 
-        # Step 4d: Place sources & loads based on LLM classification
-        sources = place_sources_and_loads(
-            lib, tb_cell, pins,
-            classifications=classifications,
-            result=classif_result,
-            vdd_value=vdd_value,
-            client=client,
-        ) if pins else []
-    except Exception:
-        print(f"[tb_builder] FAILED - cleaning up {lib}/{tb_cell}")
-        try:
-            _cleanup_tb(client, lib, tb_cell)
-        except Exception as cleanup_exc:
-            print(f"[tb_builder] Cleanup also failed: {cleanup_exc}")
-        raise
+    # Step 4d: Place sources & loads based on LLM classification
+    sources = place_sources_and_loads(
+        lib, tb_cell, pins,
+        classifications=classifications,
+        result=classif_result,
+        vdd_value=vdd_value,
+        client=client,
+    ) if pins else []
 
     print(f"\n{'='*60}")
     print(f" TB Builder Complete")
@@ -133,6 +132,8 @@ def run_tb_builder(
     print(f"  Next: python scripts/spectre_runner.py")
     print(f"{'='*60}\n")
 
+    SimFlowResult(lib, primary_cell, tb_cell, dut_context.symbol_exported, dut_context.redistributed,
+                  True, True, pins, labels, sources).save(dut_context.run_dir)
     return labels, sources, classifications, classif_result
 
 
@@ -170,11 +171,6 @@ if __name__ == "__main__":
         _cleanup_tb(client, dut_context.lib, dut_context.tb_cell)
         print("Cleanup done.")
         sys.exit(0)
-
-    classif_json = run_dir / "pin_classifications.json"
-    if not classif_json.exists():
-        print(f"WARNING: {classif_json} not found - falling back to heuristic classification.",
-              file=sys.stderr)
 
     try:
         run_tb_builder(dut_context)

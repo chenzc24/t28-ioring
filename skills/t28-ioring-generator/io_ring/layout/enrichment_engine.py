@@ -31,7 +31,8 @@ from __future__ import annotations
 import json
 import re
 import time
-from collections import OrderedDict
+from collections import Counter, OrderedDict
+from math import isfinite
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -235,6 +236,8 @@ class ResolutionContext:
                 return esd
             return self.globals.get("vss_ground", "GIOL")
         if label_from == "const.POC":
+            if self.domain and self.domain.get("poc_grounded") is True:
+                return self.resolve("global.vss_ground")
             return f"POC_{self.domain_id}" if self.domain_id else "POC"
         if label_from == "const.noConn":
             return "noConn"
@@ -443,6 +446,9 @@ def expand_instance(instance: Dict[str, Any], wiring: Dict[str, Any],
         out["direction"] = instance["direction"]
     if instance.get("domain"):
         out["domain"] = instance["domain"]
+    for key in ("bonded", "package_pin", "macro", "drive_factor"):
+        if key in instance:
+            out[key] = instance[key]
     out["pin_connection"] = pin_connection
 
     return out
@@ -584,6 +590,9 @@ def run_gates(intent_graph: Dict[str, Any], semantic: Dict[str, Any],
 
     results: Dict[str, Any] = {}
 
+    positions = [p["position"] for p in instances]
+    if len(set(positions)) != len(positions):
+        raise GateError("G1: two physical cells have the same position")
     # G1: Side counts
     side_counts = {"left": 0, "right": 0, "top": 0, "bottom": 0}
     for inst in instances:
@@ -619,17 +628,12 @@ def run_gates(intent_graph: Dict[str, Any], semantic: Dict[str, Any],
     if digital_domains:
         g3_domain_results = {}
         for d_id, d in digital_domains.items():
-            domain_providers = {d[k] for k in ("low_vdd", "low_vss", "high_vdd", "high_vss") if k in d}
-            if len(domain_providers) != 4:
-                raise GateError(
-                    f"G3: Digital domain '{d_id}' has {len(domain_providers)} unique provider names, expected 4",
-                    detail=f"providers in '{d_id}' = {sorted(domain_providers)}",
-                    hint="Each digital domain needs exactly 4 unique provider names "
-                         "(low_vdd, low_vss, high_vdd, high_vss). If extras appear, "
-                         "they likely belong to analog domains — re-classify them.",
-                    section="§5.3 (Step 2.2 Digital provider count rule)",
-                )
-            g3_domain_results[d_id] = sorted(domain_providers)
+            roles = ("low_vdd", "low_vss", "high_vdd", "high_vss")
+            if not all(isinstance(d.get(k), str) and d[k].strip() for k in roles):
+                raise GateError(f"G3: Domain '{d_id}' needs a rail name for each of {roles}")
+            if {d["low_vdd"], d["high_vdd"]} & {d["low_vss"], d["high_vss"]}:
+                raise GateError(f"G3: Domain '{d_id}' uses the same net for power and ground")
+            g3_domain_results[d_id] = {k: d[k] for k in roles}
         results["G3_digital_provider_count"] = {"pass": True, "per_domain": g3_domain_results}
     else:
         results["G3_digital_provider_count"] = {"pass": True, "skipped": "no digital domain"}
@@ -659,7 +663,8 @@ def run_gates(intent_graph: Dict[str, Any], semantic: Dict[str, Any],
         family = _device_family(inst["device"], wiring)
         if family in digital_families:
             pins = inst.get("pin_connection", {})
-            for required in ("VDD", "VSS", "VDDPST", "VSSPST"):
+            required_pins = ("VDD", "VSS", "VDDPST") if _strip_suffix(inst["device"]) == "PVSS3DGZ" else ("VDD", "VSS", "VDDPST", "VSSPST")
+            for required in required_pins:
                 if required not in pins:
                     raise GateError(
                         f"G5: Digital pad missing required pin {required}",
@@ -708,8 +713,8 @@ def run_gates(intent_graph: Dict[str, Any], semantic: Dict[str, Any],
     # G9: Provider signal names exist as instances with correct provider device
     _check_provider_instances(semantic, wiring, results)
 
-    # G10: Provider-consumer family consistency within each analog domain
-    _check_family_consistency(semantic, wiring, results)
+    # G13: count bonded supply cells in each domain.
+    _check_supply_plan(semantic, results)
 
     # G11: One and only one PVDD2POC per digital domain (extra VDDPST supplies use PVDD2DGZ)
     _check_poc_per_domain(semantic, results)
@@ -724,9 +729,6 @@ def _check_provider_instances(semantic: Dict[str, Any], wiring: Dict[str, Any],
                              results: Dict[str, Any]) -> None:
     """G9: Verify provider names in domains exist as instances with correct provider device."""
     devices = wiring["devices"]
-    provider_families = {"analog_power_provider", "analog_ground_provider",
-                         "digital_power_low", "digital_ground_low",
-                         "digital_power_high", "digital_ground_high"}
     instances = semantic.get("instances", [])
     domains = semantic.get("domains", {})
 
@@ -742,7 +744,8 @@ def _check_provider_instances(semantic: Dict[str, Any], wiring: Dict[str, Any],
         kind = domain_spec.get("kind", "")
 
         if kind == "analog":
-            for provider_key, expected_prefix in [("vdd_provider", "PVDD"), ("vss_provider", "PVSS")]:
+            for provider_key, family in (("vdd_provider", "analog_power_provider"),
+                                         ("vss_provider", "analog_ground_provider")):
                 provider_name = domain_spec.get(provider_key)
                 if not provider_name:
                     continue
@@ -761,7 +764,7 @@ def _check_provider_instances(semantic: Dict[str, Any], wiring: Dict[str, Any],
                     if dom != domain_id:
                         continue
                     dev_spec = devices.get(dev)
-                    if dev_spec and dev_spec.get("family") in provider_families:
+                    if dev_spec and dev_spec.get("family") == family:
                         has_provider = True
                         break
                 if not has_provider:
@@ -779,9 +782,9 @@ def _check_provider_instances(semantic: Dict[str, Any], wiring: Dict[str, Any],
         elif kind == "digital":
             provider_role_device = {
                 "low_vdd": "PVDD1DGZ",
-                "low_vss": "PVSS1DGZ",
-                "high_vdd": "PVDD2POC",
-                "high_vss": "PVSS2DGZ",
+                "low_vss": ("PVSS1DGZ", "PVSS3DGZ"),
+                "high_vdd": ("PVDD2DGZ", "PVDD2POC"),
+                "high_vss": ("PVSS2DGZ", "PVSS3DGZ"),
             }
             for provider_key, expected_device in provider_role_device.items():
                 provider_name = domain_spec.get(provider_key)
@@ -795,7 +798,7 @@ def _check_provider_instances(semantic: Dict[str, Any], wiring: Dict[str, Any],
                         hint=f"Add an instance with name='{provider_name}' and device='{expected_device}'.",
                         section="§5.3 (Step 2.2 Digital provider assignment)",
                     )
-                has_correct_device = any(dev == expected_device for dev, _ in matches)
+                has_correct_device = any(dom == domain_id and dev in (expected_device if isinstance(expected_device, tuple) else (expected_device,)) for dev, dom in matches)
                 if not has_correct_device:
                     found_devices = list(set(dev for dev, _ in matches))
                     raise GateError(
@@ -810,55 +813,92 @@ def _check_provider_instances(semantic: Dict[str, Any], wiring: Dict[str, Any],
     results["G9_provider_instances"] = {"pass": True}
 
 
-def _check_family_consistency(semantic: Dict[str, Any], wiring: Dict[str, Any],
-                              results: Dict[str, Any]) -> None:
-    """G10: Provider-consumer family pairing (1AC↔3AC, 1A↔3A) is an empirical default.
-
-    User can explicitly request mixed combinations (e.g., PVDD3A provider with
-    PVDD1AC consumer). This check surfaces mixing as a warning but does not
-    block engine execution — user override takes precedence.
-    """
-    instances = semantic.get("instances", [])
-    domains = semantic.get("domains", {})
-
-    # Family suffix groups: AC family (3AC/1AC) vs A family (3A/1A)
-    ac_provider_devices = {"PVDD3AC", "PVSS3AC"}
-    ac_consumer_devices = {"PVDD1AC", "PVSS1AC"}
-    a_provider_devices = {"PVDD3A", "PVSS3A"}
-    a_consumer_devices = {"PVDD1A", "PVSS1A"}
-
-    warnings = []
-    for domain_id, domain_spec in domains.items():
-        if domain_spec.get("kind") != "analog":
-            continue
-
-        domain_instances = [i for i in instances if i.get("domain") == domain_id]
-        domain_devices = set(i.get("device", "") for i in domain_instances)
-
-        has_ac_provider = bool(domain_devices & ac_provider_devices)
-        has_a_provider = bool(domain_devices & a_provider_devices)
-        has_ac_consumer = bool(domain_devices & ac_consumer_devices)
-        has_a_consumer = bool(domain_devices & a_consumer_devices)
-
-        # Surface AC/A mixing as a non-blocking warning (user override allowed).
-        if has_ac_provider and has_a_consumer:
-            bad = sorted(domain_devices & a_consumer_devices)
-            warnings.append(
-                f"G10: Domain '{domain_id}' mixes AC provider "
-                f"{sorted(domain_devices & ac_provider_devices)} with A consumer(s) {bad} "
-                f"— allowed if user-specified, otherwise prefer PVDD1AC/PVSS1AC under "
-                f"a PVDD3AC/PVSS3AC provider pair."
-            )
-        if has_a_provider and has_ac_consumer:
-            bad = sorted(domain_devices & ac_consumer_devices)
-            warnings.append(
-                f"G10: Domain '{domain_id}' mixes A provider "
-                f"{sorted(domain_devices & a_provider_devices)} with AC consumer(s) {bad} "
-                f"— allowed if user-specified, otherwise prefer PVDD1A/PVSS1A under "
-                f"a PVDD3A/PVSS3A provider pair."
-            )
-
-    results["G10_family_consistency"] = {"pass": True, "warnings": warnings}
+def _check_supply_plan(semantic, results):
+    """Check planned bonded cells per electrical domain (AN 8.6 and 10.6)."""
+    errors = []
+    pending = []
+    for domain_id, spec in semantic["domains"].items():
+        pads = [p for p in semantic["instances"] if p.get("domain") == domain_id]
+        if any(type(p.get("bonded", True)) is not bool for p in pads):
+            raise InputError(f"{domain_id}: bonded must be a JSON boolean")
+        bonded = [p for p in pads if p.get("bonded", True)]
+        count = Counter(p["device"] for p in bonded)
+        devices = {p["device"] for p in pads}
+        for key in ("core_voltage", "io_voltage"):
+            voltage = spec.get(key)
+            if voltage is None:
+                pending.append(f"{domain_id}: supply {key} in volts before integration")
+            elif type(voltage) not in (float, int) or not isfinite(voltage) or voltage <= 0:
+                errors.append(f"{domain_id}: invalid {key}")
+        if spec["kind"] == "digital":
+            minima = [(("PVDD1DGZ",), 3), (("PVDD2DGZ", "PVDD2POC"), 2),
+                      (("PVSS1DGZ", "PVSS3DGZ"), 1), (("PVSS2DGZ", "PVSS3DGZ"), 1)]
+            if "PVSS3DGZ" in devices and spec.get("low_vss") != spec.get("high_vss"):
+                errors.append(f"{domain_id}: PVSS3DGZ internally connects both grounds")
+            roles = {"PVDD1DGZ": "low_vdd", "PVDD2POC": "high_vdd", "PVDD2DGZ": "high_vdd",
+                     "PVSS1DGZ": "low_vss", "PVSS3DGZ": "low_vss", "PVSS2DGZ": "high_vss"}
+            for p in pads:
+                role = roles.get(p["device"])
+                if role and role in spec and p["name"] != spec[role]:
+                    errors.append(f"{p['position']}: {p['device']} must supply {spec[role]}")
+            drivers = [p for p in pads if p.get("device") in {"PDDW16SDGZ","PRUW08SDGZ"}]
+            factors = [p.get("drive_factor") for p in drivers]
+            for key in ("package_inductance_nh", "load_pf"):
+                value = spec.get(key)
+                if value is not None and (type(value) not in (int, float) or not isfinite(value) or value <= 0):
+                    errors.append(f"{domain_id}: invalid {key}")
+            if drivers and not all(spec.get(k) for k in ("sso_source", "package_inductance_nh", "load_pf")):
+                pending.append(f"{domain_id}: verify drive factors against the library table at the package inductance and load")
+            if any(v is None for v in factors):
+                pending.append(f"{domain_id}: SSO needs package inductance, load and drive factors for every bidirectional IO (7.3)")
+            elif any(type(v) not in (int, float) or not isfinite(v) or v <= 0 for v in factors):
+                errors.append(f"{domain_id}: invalid SSO drive_factor")
+            elif drivers:
+                from math import ceil
+                total = round(sum(factors), 10)
+                minima += [(("PVSS2DGZ", "PVSS3DGZ"), ceil(total)),
+                           (("PVDD2DGZ", "PVDD2POC"), ceil(round(total / 1.1, 10)))]
+        elif spec["kind"] == "analog":
+            core = "PVDD3AC" in devices
+            if core and "PVDD3A" in devices:
+                errors.append(f"{domain_id}: PVDD3A and PVDD3AC share a domain (9.3)")
+            suffix = "AC" if core else "A"
+            minima = [(("PVDD3" + suffix,), 3 if core else 2), (("PVSS3" + suffix,), 1)]
+            if any(d in devices for d in ("PDB3AC", "PVSS3AC")) and not core:
+                errors.append(f"{domain_id}: core-voltage cells need a core-voltage bus provider")
+            if "PVSS3A" in devices and core:
+                errors.append(f"{domain_id}: IO-voltage ground on a core-voltage bus")
+            if not core and {"PVDD1AC", "PVSS1AC"} & devices or core and {"PVDD1A", "PVSS1A"} & devices:
+                errors.append(f"{domain_id}: dedicated macro cells require the matching analog bus family")
+            if core:
+                pending.append(f"{domain_id}: verify core clamp, orientation and connection (10.7, 16)")
+            for polarity, role in (("PVDD3", "vdd_provider"), ("PVSS3", "vss_provider")):
+                if any(p["device"].startswith(polarity) and p["name"] != spec.get(role) for p in pads):
+                    errors.append(f"{domain_id}: a {polarity} pad would short distinct named bus supplies")
+            for dedicated, minimum in (("AC", 3), ("A", 2)):
+                groups = Counter()
+                for p in pads:
+                    if p["device"] not in {"PVDD1" + dedicated, "PVSS1" + dedicated}:
+                        continue
+                    if not p.get("macro") or not p.get("package_pin"):
+                        errors.append(f"{p['position']}: dedicated supply requires macro and package_pin (9.5–9.6)")
+                    if p["device"].startswith("PVDD") and p.get("bonded", True):
+                        groups[(p["name"], p.get("package_pin"))] += 1
+                    paired = "PVSS1" if p["device"].startswith("PVDD") else "PVDD1"
+                    if not any(q["device"] == paired + dedicated and q.get("macro") == p.get("macro") for q in bonded):
+                        errors.append(f"{p['position']}: missing dedicated {paired + dedicated} for {p.get('macro')}")
+                for group, n in groups.items():
+                    if n < minimum:
+                        errors.append(f"{domain_id}: {group} has {n} bonded PVDD1{dedicated}, needs {minimum}")
+        else:
+            raise InputError(f"{domain_id}: unsupported domain kind {spec['kind']!r}")
+        for masters, minimum in minima:
+            n = sum(count[m] for m in masters)
+            if n < minimum:
+                errors.append(f"{domain_id}: {'/'.join(masters)} bonded {n}, requires {minimum}")
+    if errors:
+        raise GateError("G13: supply plan", detail="; ".join(errors))
+    results["G13_supply_plan"] = {"pass": True, "pending": pending}
 
 
 def _check_poc_per_domain(semantic: Dict[str, Any], results: Dict[str, Any]) -> None:
@@ -869,14 +909,13 @@ def _check_poc_per_domain(semantic: Dict[str, Any], results: Dict[str, Any]) -> 
             continue
         pocs = [i["position"] for i in semantic.get("instances", [])
                 if i.get("domain") == d_id and i.get("device") == "PVDD2POC"]
-        if len(pocs) > 1:
-            raise GateError(
-                f"G11: Digital domain '{d_id}' has {len(pocs)} PVDD2POC cells, expected one",
-                detail=f"PVDD2POC at {pocs}",
-                hint="Keep one PVDD2POC per digital domain and give the other VDDPST supply pads "
-                     "(same high_vdd name) device PVDD2DGZ.",
-                section="§5.3 (Step 2.2 Digital provider assignment)",
-            )
+        has_io = any(i.get("domain") == d_id and i.get("direction") in ("input", "output")
+                     for i in semantic["instances"])
+        grounded = d.get("poc_grounded") is True
+        if grounded == has_io or len(pocs) != int(has_io):
+            raise GateError(f"G11: {d_id} has {len(pocs)} PVDD2POC, functional IO={has_io}. "
+                            "Use one POC source with functional IO. For a supply-only domain "
+                            "set poc_grounded=true and plan the physical ground connection.")
         counts[d_id] = len(pocs)
     results["G11_poc_per_domain"] = {"pass": True, "per_domain": counts}
 
@@ -1000,6 +1039,9 @@ def enrich(semantic_path: Path, wiring_path: Path,
     overrides = semantic.get("overrides", {})
     ring_config = semantic["ring_config"]
 
+    if any(p.get("domain") not in domains for p in semantic["instances"]):
+        raise InputError("Every pad needs an explicit domain defined in domains")
+
     # Phase 2: Expand instances
     expanded: List[Dict[str, Any]] = []
     for inst in semantic["instances"]:
@@ -1022,6 +1064,8 @@ def enrich(semantic_path: Path, wiring_path: Path,
         ("height", ring_config["height"]),
         ("placement_order", ring_config["placement_order"]),
     ])
+    intent_graph["ring_config"].update(ring_config)
+    intent_graph["ring_config"]["domains"] = domains
     intent_graph["instances"] = expanded + corners
 
     # Phase 5: Gate checks

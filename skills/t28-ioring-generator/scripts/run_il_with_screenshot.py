@@ -79,64 +79,34 @@ def run_il_file(il_file_path: str, lib: str, cell: str, view: str = "layout", sa
     if skill_path.suffix.lower() not in [".il", ".skill"]:
         return f"[ERROR] Error: File {skill_path} is not a valid il/skill file"
 
-    # Upload to remote server then load — works for both local and remote Virtuoso.
-    # The bridge daemon can return ok=False for large scripts due to TCP response
-    # timing. We verify cellView identity before every load to prevent polluting
-    # other cells.
-    max_attempts = 3
-    for attempt in range(1, max_attempts + 1):
-        # Open and verify the correct cellView before each attempt
-        ok = open_cell_view_by_type(lib, cell, view=view, view_type=None, mode="w", timeout=30)
-        if not ok:
-            return f"[ERROR] Error: Failed to open cellView {lib}/{cell}/{view}"
+    # Open and verify the correct cellView before each attempt
+    ok = open_cell_view_by_type(lib, cell, view=view, view_type=None, mode="w", timeout=30)
+    if not ok:
+        return f"[ERROR] Error: Failed to open cellView {lib}/{cell}/{view}"
 
-        window_ok = ge_open_window(lib, cell, view=view, view_type=None, mode="a", timeout=30)
-        if not window_ok:
-            return f"[ERROR] Error: Failed to open window for {lib}/{cell}/{view}"
+    window_ok = ge_open_window(lib, cell, view=view, view_type=None, mode="a", timeout=30)
+    if not window_ok:
+        return f"[ERROR] Error: Failed to open window for {lib}/{cell}/{view}"
 
-        ui_redraw(timeout=10)
-        sleep(0.5)
-        rb_exec("cv = geGetEditCellView()", timeout=10)
+    ui_redraw(timeout=10)
+    sleep(0.5)
+    rb_exec("cv = geGetEditCellView()", timeout=10)
 
-        # CRITICAL: Verify cv points to the requested cell, not some other cell
-        if not _verify_cellview(lib, cell, view):
-            return (f"[ERROR] Error: CellView mismatch — refusing to load {skill_path.name} "
-                    f"into wrong cell. Expected {lib}/{cell}/{view}. "
-                    f"Close other cells in Virtuoso and retry.")
+    # CRITICAL: Verify cv points to the requested cell, not some other cell
+    if not _verify_cellview(lib, cell, view):
+        return (f"[ERROR] Error: CellView mismatch — refusing to load {skill_path.name} "
+                f"into wrong cell. Expected {lib}/{cell}/{view}. "
+                f"Close other cells in Virtuoso and retry.")
 
-        ok = load_skill_file(str(skill_path.resolve()), timeout=300)
-        if ok:
-            if save:
-                if save_current_cellview(timeout=30):
-                    return f"[OK] il file {skill_path.name} executed and saved successfully"
-                return f"[OK] il file {skill_path.name} executed successfully but save failed"
-            return f"[OK] il file {skill_path.name} executed successfully"
+    ok = load_skill_file(str(skill_path.resolve()), timeout=300)
+    if ok:
+        if save:
+            if save_current_cellview(timeout=30):
+                return f"[OK] il file {skill_path.name} executed and saved successfully"
+            return f"[ERROR] Save failed for {lib}/{cell}/{view}"
+        return f"[OK] il file {skill_path.name} executed successfully"
 
-        # load_il returned False — but Virtuoso may still be executing or may have
-        # finished while the TCP response was lost.  Wait and verify.
-        print(f"   [WARN] Attempt {attempt}/{max_attempts} load_il returned False, waiting 5s then verifying...")
-        sleep(5)
-
-        # Re-verify cellView is still correct before checking instances
-        if not _verify_cellview(lib, cell, view):
-            return (f"[ERROR] Error: CellView shifted after failed load — {lib}/{cell}/{view} lost focus. "
-                    f"Aborting to prevent polluting other cells.")
-
-        # Check if instances were actually created despite the False return
-        inst_count = rb_exec(
-            'sprintf(nil "%d" length(cv~>instances))', timeout=10
-        ).strip()
-        if inst_count and inst_count.isdigit() and int(inst_count) > 0:
-            print(f"   ✓ Found {inst_count} instances — script actually succeeded (daemon response was lost)")
-            if save:
-                save_current_cellview(timeout=30)
-            return f"[OK] il file {skill_path.name} executed and saved successfully (verified after response loss)"
-
-        # Genuinely failed — retry
-        if attempt < max_attempts:
-            print(f"   No instances found, retrying...")
-
-    return f"[ERROR] il file {skill_path.name} execution failed after {max_attempts} attempts"
+    return f"[ERROR] SKILL load incomplete for {lib}/{cell}/{view}. Inspect the CIW log before retrying."
 
 
 def main():
@@ -252,7 +222,7 @@ def main():
             result_dict["message"] = "[ERROR] Screenshot failed"
 
         print(json.dumps(result_dict, ensure_ascii=False, indent=2))
-        sys.exit(0)
+        sys.exit(0 if result_dict["status"] == "success" else 1)
 
     except Exception as e:
         result_dict["message"] = f"[ERROR] Error occurred while running il file: {type(e).__name__}: {e}"

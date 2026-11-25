@@ -147,18 +147,18 @@ OUTER (left):                DUT                    INNER (right):
                           +--------+
  vdc PLUS --- [VDDIB] --- VDDIB   VDDIB_CORE --- idc PLUS
  vdc MINUS -- "gnd!"    +--------+               idc MINUS -- [VSSIB_CORE or VSSIB]
- vdc = ~0.9 V (non-round)                          idc = few mA (non-round)
+ vdc = ~0.9 V                          idc = few mA
 ```
 
 - **Outer device**: `vdc`
   - PLUS -> outer pin name (e.g., `VDDIB`)
   - MINUS -> `"gnd!"` (analogLib/gnd, global reference)
-  - Voltage: **~0.9 V, non-round** (e.g., `0.87`, `0.91`, `0.93`)
+  - Voltage: **~0.9 V** (e.g., `0.87`, `0.91`, `0.93`)
 
 - **Inner device**: `idc`
   - PLUS -> inner pin (`VDDIB_CORE` or `VDDIB` duplicate)
   - MINUS -> local PVSS inner pin (`VSSIB_CORE` or `VSSIB` duplicate)
-  - Current: **few mA, non-round** (e.g., `2.3m`, `4.7m`, `1.8m`)
+  - Current: **few mA** (e.g., `2.3m`, `4.7m`, `1.8m`)
 
 **LLM must provide**: `stimulus_params.vdc`, `inner_params.idc`, `local_pvss`
 
@@ -173,19 +173,19 @@ OUTER (left):                DUT                    INNER (right):
                           +--------+
  idc PLUS --- "gnd!"     IB3     IB3_CORE --- vdc PLUS
  idc MINUS -- [IB3] ---- +--------+            vdc MINUS -- [VSSIB_CORE or VSSIB]
- idc = positive, few uA (non-round)             vdc = ~few hundred mV (non-round)
+ idc = positive, few uA             vdc = ~few hundred mV
 ```
 
 - **Outer device**: `idc`
   - PLUS -> `"gnd!"` (analogLib/gnd)
   - MINUS -> outer pin name (e.g., `IB3`)
-  - Current: **positive, few uA, non-round** (e.g., `11.3u`, `8.7u`)
+  - Current: **positive, few uA** (e.g., `11.3u`, `8.7u`)
   - > Positive value because PLUS is at gnd, MINUS at pin -> conventional current flows gnd->pin -> into DUT OK
 
 - **Inner device**: `vdc`
   - PLUS -> inner pin (`IB3_CORE` or `IB3` duplicate)
   - MINUS -> local PVSS inner pin (`VSSIB_CORE` or `VSSIB` duplicate)
-  - Voltage: **few hundred mV, non-round** (e.g., `0.34`, `0.27`, `0.41`)
+  - Voltage: **few hundred mV** (e.g., `0.34`, `0.27`, `0.41`)
 
 **LLM must provide**: `stimulus_params.idc` (positive), `inner_params.vdc`, `local_pvss`
 
@@ -204,12 +204,12 @@ zone and record it explicitly in `local_pvss`.
 OUTER side:                         DUT (left pin)
   vdc PLUS ---- [VCM1 net] -------- VCM1 outer
   vdc MINUS --- "gnd!"
-  vdc = few hundred mV, non-round (e.g., 0.43, 0.37, 0.52)
+  vdc = few hundred mV (e.g., 0.43, 0.37, 0.52)
 
 INNER side:                         DUT (right pin = VCM1_CORE or VCM1 dup.)
   idc PLUS ---- [VCM1_CORE/VCM1 inner net]
   idc MINUS --- local PVSS inner pin (`GAMP_CORE` or `GAMP` duplicate)
-  idc = small non-round current, usually uA range (e.g., 3.1u)
+  idc = small current, usually uA range (e.g., 3.1u)
 ```
 
 - **Outer device**: `vdc`, PLUS->pin, MINUS->`"gnd!"`
@@ -246,10 +246,10 @@ OUTER (left):                 DUT
 OUTER (left):
  vdc PLUS --- [PVSS2DGZ] --- PVSS2DGZ outer
  vdc MINUS -- "gnd!"
- vdc = ~10-20 mV, non-round (e.g., 0.017)
+ vdc = ~10-20 mV (e.g., 0.017)
 ```
 
-- **Outer device**: `vdc`, PLUS->pin, MINUS->`"gnd!"`, voltage: **~0 V, non-round**
+- **Outer device**: `vdc`, PLUS->pin, MINUS->`"gnd!"`, voltage: **~0 V**
 - **Inner device**: none
 
 ---
@@ -260,12 +260,12 @@ OUTER (left):
 OUTER (left):
  vdc PLUS --- [VIOL] --- VIOL outer
  vdc MINUS -- "gnd!"
- vdc = ~0.9 V, non-round (e.g., 0.87, 0.92)
+ vdc = ~0.9 V (e.g., 0.87, 0.92)
 
  idc placed between VIOL net and GIOL net (see Section 3 Digital Supply Pairs)
 ```
 
-- **Outer device**: `vdc`, PLUS->pin, MINUS->`"gnd!"`, voltage: **~0.9 V, non-round**
+- **Outer device**: `vdc`, PLUS->pin, MINUS->`"gnd!"`, voltage: **~0.9 V**
 - **Inner device**: none
 
 **LLM must provide**: `local_dig_gnd = "<dig_lv_ground pin name>"` (e.g., `"GIOL"`)
@@ -278,10 +278,10 @@ OUTER (left):
 OUTER (left):
  vdc PLUS --- [GIOL] --- GIOL outer
  vdc MINUS -- "gnd!"
- vdc = ~10-20 mV, non-round (e.g., 0.013)
+ vdc = ~10-20 mV (e.g., 0.013)
 ```
 
-- **Outer device**: `vdc`, PLUS->pin, MINUS->`"gnd!"`, voltage: **~10-20 mV, non-round**
+- **Outer device**: `vdc`, PLUS->pin, MINUS->`"gnd!"`, voltage: **~10-20 mV**
 - **Inner device**: none
 - This pin name becomes the `digital_low_gnd` value in the top-level JSON.
 
@@ -350,40 +350,20 @@ Declared in top-level `digital_supply_pairs[]`.
 ```
 [PVDD2POC net] -- idc PLUS
 [PVSS2DGZ net] -- idc MINUS
-idc = few mA, non-round
+idc = few mA
 
 [VIOL net] -- idc PLUS
 [GIOL net] -- idc MINUS
-idc = few mA, non-round
+idc = few mA
 ```
 
 The code places one `idc` instance per pair. LLM provides the `idc` value.
 
 ---
 
-## 4. Value Selection Rules
+## 4. Stimulus values
 
-When a rule says "non-round", pick a value that is NOT a clean integer, .5, .25, etc.
-
-| Quantity | Typical range | Bad (round) | Good (non-round) |
-|---|---|---|---|
-| Analog supply vdc | 0.85-0.95 V | `0.9` | `0.87`, `0.91`, `0.93` |
-| Analog inner idc (PVDD->PVSS) | 1-5 mA | `2m`, `3m` | `2.3m`, `4.7m`, `1.8m` |
-| Analog IB outer idc | 5-15 uA | `10u` | `11.3u`, `8.7u`, `6.4u` |
-| Analog IB inner vdc | 250-450 mV | `0.3`, `0.4` | `0.34`, `0.27`, `0.41` |
-| Analog ground (PVSS) vdc | 10-20 mV | `0` | `0.017`, `0.013` |
-| Digital LV supply vdc | 0.85-0.95 V | `0.9` | `0.87`, `0.92` |
-| Digital HV supply vdc | 1.8 V (fixed) | - | `1.8` <- exact OK |
-| PVSS2DGZ / dig HV gnd vdc | 10-20 mV | `0` | `0.017`, `0.023` |
-| PVSS1DGZ / dig LV gnd vdc | 10-20 mV | `0` | `0.013`, `0.019` |
-| Digital supply pair idc | 3-8 mA | `5m` | `5.3m`, `3.7m` |
-| Digital input IO v2 | 1.7 V (fixed) | - | `1.7` <- exact OK |
-| Digital output IO v2 | 1.62 V (fixed) | - | `1.62` <- exact OK |
-
-Reason: non-round values stress the circuit more realistically and avoid accidental
-cancellations in simulation.
-
----
+Use the domain voltages, ground references, IO levels, loads, timing and package model from the design or measurement specification. Record the source in the classification reason. Numerical values below illustrate source topology. For exploratory runs, document assumptions and distinguish results from measurements at specified conditions.
 
 ## 5. Output JSON Schema
 
@@ -455,11 +435,11 @@ Field names here match the `PinClassification` dataclass in `sim_io/pin_types.py
 | `local_pvss` | string | **LLM** | *(analog only)* PVSS pin name that is this pin's local ground zone anchor |
 | `local_dig_gnd` | string | **LLM** | *(dig_hv_power, dig_lv_power only)* paired ground pin name |
 | `stimulus` | string | LLM | Outer stimulus cell: `"vdc"`, `"idc"`, `"vpulse"`, or null |
-| `stimulus_params` | object | **LLM** | Outer stimulus params (non-round values) |
+| `stimulus_params` | object | **LLM** | Outer stimulus params (design values) |
 | `load` | string | LLM | Outer load cell: `"cap"` for `digital_io_output`, else null |
 | `load_params` | object | LLM | Outer load params (e.g., `{"c": "10p"}`) |
 | `inner_stimulus` | string | LLM | Inner device: `"idc"`, `"vdc"`, `"cap"`, or null |
-| `inner_params` | object | **LLM** | Inner device params (non-round values) |
+| `inner_params` | object | **LLM** | Inner device params (design values) |
 | `confidence` | float | LLM | 0.0-1.0 |
 | `reason` | string | LLM | Brief classification rationale |
 
@@ -475,7 +455,7 @@ Field names here match the `PinClassification` dataclass in `sim_io/pin_types.py
 | `analog_local_grounds[].members` | **LLM** | All `analog_power`, `analog_current`, and `analog_reference` pins in this zone |
 | `digital_supply_pairs[].power` | **LLM** | Name of the digital supply power pin |
 | `digital_supply_pairs[].ground` | **LLM** | Name of the paired digital ground pin |
-| `digital_supply_pairs[].idc` | **LLM** | Current value (non-round string, e.g., `"5.3m"`) |
+| `digital_supply_pairs[].idc` | **LLM** | Current value (current string, e.g., `"5.3m"`) |
 | `shared_output_vpulse` | **LLM** | Params for the single digital output vpulse (v2, per fixed) |
 
 ---
@@ -641,14 +621,8 @@ And assuming: `VSSIB_CORE` and `GIOL` and `D0_CORE, D1_CORE, RST_CORE` exist in 
 - [ ] PVDD3AC/PVSS3AC provider pairs have their own isolated zone (not shared with consumers)
 - [ ] `digital_low_gnd` is set to the `dig_lv_ground` pin name
 - [ ] `digital_supply_pairs` covers both HV pair and LV pair
-- [ ] All `stimulus_params` use non-round values (no clean integers/halves, except fixed specs)
-- [ ] All `inner_params` use non-round values
 - [ ] `analog_current` outer idc is **positive** (PLUS=gnd, MINUS=pin -> current into pin)
-- [ ] `dig_hv_power` vdc = 1.8 V (fixed)
-- [ ] `dig_hv_ground` vdc is ~10-20 mV non-round (e.g., 0.017)
-- [ ] `dig_lv_ground` vdc is ~10-20 mV non-round (e.g., 0.013)
 - [ ] All digital IO pins classified as input or output (no bidirectional)
-- [ ] `shared_output_vpulse` declared with v2=1.62, per=7n (fixed)
 - [ ] Only left-side pins (no `_CORE` suffix, side="left") appear in `pins[]`
 - [ ] Confidence < 0.7 -> flag reason for review
 

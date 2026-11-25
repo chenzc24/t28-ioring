@@ -166,6 +166,15 @@
         "POC":    {"label_from": "const.POC", "emit": true}
       }
     },
+    "PVSS3DGZ": {
+      "family": "digital_ground_low",
+      "pins": {
+        "VDD":    {"label_from": "domain.low_vdd"},
+        "VSS":    {"label_from": "self"},
+        "VDDPST": {"label_from": "domain.high_vdd"},
+        "POC":    {"label_from": "const.POC"}
+      }
+    },
     "PVSS2DGZ": {
       "family": "digital_ground_high",
       "pins": {

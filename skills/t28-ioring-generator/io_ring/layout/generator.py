@@ -255,6 +255,9 @@ class LayoutGeneratorT28:
                 "orientation": orientation,
             }
 
+            for key in ("bonded", "macro", "package_pin", "drive_factor", "pad_width", "pad_height"):
+                if key in instance:
+                    component[key] = instance[key]
             if relative_pos:
                 component["position_str"] = relative_pos
 
@@ -449,6 +452,8 @@ def generate_layout_from_json(json_file: str, output_file: str = "generated_layo
 
     final_components_input = list(all_components_with_fillers)
     
+    from .ring_rules import check_placed_ring
+    check_placed_ring(final_components_input, ring_config, generator)
     final_components = generator.convert_relative_to_absolute(chip_width, chip_height, final_components_input, ring_config)
     outer_pads = [comp for comp in final_components if comp.get("type") == "pad"]
     corners = [comp for comp in final_components if comp.get("type") == "corner"]
@@ -456,7 +461,7 @@ def generate_layout_from_json(json_file: str, output_file: str = "generated_layo
     all_components_with_fillers = final_components
     filler_components = [
         comp for comp in all_components_with_fillers
-        if comp.get("type") == "filler" or DeviceClassifier.is_filler_device(comp.get("device", ""))
+        if comp.get("type") in {"filler", "separator"} or DeviceClassifier.is_filler_device(comp.get("device", ""))
     ]
     
     # Generate SKILL script
@@ -486,10 +491,12 @@ def generate_layout_from_json(json_file: str, output_file: str = "generated_layo
         skill_commands.append(f'dbCreateParamInstByMasterName(cv "{ring_config.get("library_name", "tphn28hpcpgv18")}" "{device}" "{ring_config.get("view_name", "layout")}" "{sanitized_name}" list({x} {y}) "{orientation}")')
         
         # Add PAD60GU for pad components (28nm specific)
-        if component_type == "pad":
+        if component_type == "pad" and component.get("bonded", True):
             device_masters = ring_config.get("device_masters", {})
             pad_library = device_masters.get("pad_library", "PAD")
             pad_master = device_masters.get("pad60_master", "PAD60GU")
+            if VoltageDomainHandler.get_voltage_domain(component) == "analog":
+                pad_master = device_masters.get("analog_pad60_master", pad_master)
             sanitized_pad_name = generator.sanitize_skill_instance_name(f"pad60gu_{name}_{position_str}")
             skill_commands.append(f'dbCreateParamInstByMasterName(cv "{pad_library}" "{pad_master}" "layout" "{sanitized_pad_name}" list({x} {y}) "{orientation}")')
     
@@ -534,6 +541,21 @@ def generate_layout_from_json(json_file: str, output_file: str = "generated_layo
         pin_label_commands = []
     skill_commands.extend(pin_label_commands)
     skill_commands.append("")
+    # Label the real master terminal in top-level coordinates, including rotated inner pads.
+    for pad in outer_pads + inner_pads:
+        if not pad["device"].startswith("PVDD2POC_"):
+            continue
+        prefix = "inner_pad_" if pad["type"] == "inner_pad" else ""
+        instance = generator.sanitize_skill_instance_name(f"{prefix}{pad['name']}_{pad.get('position_str', 'abs')}")
+        label = pad["pin_connection"]["POC"]["label"]
+        skill_commands.extend([
+            f'pocInst = dbFindAnyInstByName(cv {json.dumps(instance)})',
+            'pocTerm = dbFindTermByName(pocInst~>master "POC")',
+            'pocFig = car(pocTerm~>pins)~>fig',
+            'unless(pocFig error("Missing POC rail terminal on %s" pocInst~>name))',
+            'pocPoint = dbTransformPoint(centerBox(pocFig~>bBox) pocInst~>transform)',
+            f'dbCreateLabel(cv list(pocFig~>layerName "pin") pocPoint {json.dumps(label)} "centerCenter" "R0" "roman" 0.1)',
+        ])
     skill_commands.append("dbSave(cv)")
     skill_commands.append("t")
     

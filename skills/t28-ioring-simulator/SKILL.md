@@ -110,7 +110,7 @@ Find the run directory from the path printed by Step 1, or read:
 ${AMS_OUTPUT_ROOT}/simulation/.latest_run
 ```
 
-Then write two files into that run directory.
+Use the explicit run directory for subsequent commands, especially when multiple DUTs are active. Write both intent files into it.
 
 ### File 1: `pin_classifications.json`
 
@@ -130,7 +130,7 @@ Key rules:
 - Use `device_class` to drive source/load topology.
 - Assign analog local ground zones.
 - Assign digital supply pairs.
-- Use non-round stimulus values, for example `1.72`, `2.7m`, `137n`.
+- Use the ring’s specified nominal voltages, package loading and timing for each domain. Record the source of each stimulus value.
 
 ### File 2: `sim_config.json`
 
@@ -151,7 +151,7 @@ Do not write raw OCEAN expressions in `outputs`; use `pin_measurements`.
 ## Step 3: Build Testbench
 
 ```bash
-$AMS_PYTHON "$SCRIPTS_PATH/tb_builder.py" [--run-dir <run_dir>]
+$AMS_PYTHON "$SCRIPTS_PATH/tb_builder.py" --run-dir <run_dir>
 ```
 
 If `--run-dir` is omitted, the script reads `${AMS_OUTPUT_ROOT}/simulation/.latest_run`.
@@ -170,12 +170,12 @@ Output:
 <run_dir>/result.json
 ```
 
-If `pin_classifications.json` is missing, the script can fall back to heuristic classification, but for real T28 IO ring work you should write the classification file first.
+The builder rejects a missing or mismatched pin classification before it edits the testbench. Inspect a partially built view and use explicit cleanup only when appropriate.
 
 ## Step 4: Direct Spectre Simulation with Maestro Sync
 
 ```bash
-$AMS_PYTHON "$SCRIPTS_PATH/spectre_runner.py" [--run-dir <run_dir>] [--intent "<description>"]
+$AMS_PYTHON "$SCRIPTS_PATH/spectre_runner.py" --run-dir <run_dir> [--intent "<description>"]
 ```
 
 What it does:
@@ -205,7 +205,7 @@ Do not use Maestro results as the verification source for this route. Use `sim_r
 Use only for legacy/debug workflows:
 
 ```bash
-$AMS_PYTHON "$SCRIPTS_PATH/maestro_runner.py" [--run-dir <run_dir>] [--run-sim]
+$AMS_PYTHON "$SCRIPTS_PATH/maestro_runner.py" --run-dir <run_dir> [--run-sim]
 ```
 
 Prefer `spectre_runner.py` for normal simulator validation.

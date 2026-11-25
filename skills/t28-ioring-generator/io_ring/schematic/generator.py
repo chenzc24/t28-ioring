@@ -140,7 +140,7 @@ class SchematicGenerator:
             offset = -5.5 * 0.125
         elif (device_type.startswith('PVDD1DGZ') or device_type.startswith('PVSS1DGZ') or 
               device_type.startswith('PVDD2POC') or device_type.startswith('PVDD2DGZ') or
-              device_type.startswith('PVSS2DGZ')):  # Digital power/ground
+              device_type.startswith(('PVSS2DGZ', 'PVSS3DGZ'))):  # Digital power/ground
             offset = -8 * 0.125
         else:  # Other analog power/ground devices
             offset = 1.5 * 0.125
@@ -617,8 +617,7 @@ class SchematicGenerator:
             template = self.template_manager.get_template(device)
             
             if not template:
-                print(f"[WARN] Warning: Template not found for device type {device}, skipping {inst['name']}")
-                continue
+                raise ValueError(f"Missing symbol template for {device} at {inst['position']}")
             
             # Load device library (if not loaded yet)
             if device not in loaded_devices:
@@ -696,7 +695,9 @@ class SchematicGenerator:
                 label = self.format_skill_net_label(label)
                 create_wire = pin_cfg.get('create_wire', default_config['create_wire'])
                 create_label = pin_cfg.get('create_label', default_config['create_label'])
-                create_pin = pin_cfg.get('create_pin', default_config['create_pin'])
+                # Stream-out exposes the top-level POC rail text as a cell terminal.
+                poc_terminal = device.startswith("PVDD2POC_") and pin["name"] == "POC"
+                create_pin = pin_cfg.get("create_pin", default_config["create_pin"] or poc_terminal)
                 
                 if not (create_wire or create_label or create_pin):
                     continue

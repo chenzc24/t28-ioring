@@ -119,12 +119,8 @@ def main():
         for w in g8_warnings:
             print(f"     - {w}")
 
-    # Print G10 family consistency warnings (AC/A mixing — allowed under user override)
-    g10_warnings = gates.get("G10_family_consistency", {}).get("warnings", [])
-    if g10_warnings:
-        print(f"   [WARN] Family pairing (empirical default):")
-        for w in g10_warnings:
-            print(f"     - {w}")
+    for item in gates["G13_supply_plan"]["pending"]:
+        print(f"   [PENDING] {item}")
 
     # Print ESD override info
     if result["esd_override_applied"]:

@@ -696,6 +696,72 @@
       "device_cell": "PVDD2DGZ_H_G",
       "device_view": "symbol"
     },
+    "PVSS3DGZ_V_G": {
+      "center_x": 1.0,
+      "center_y": 0.5,
+      "pins": [
+        {
+          "name": "POC",
+          "x": 0.375,
+          "y": 1.0,
+          "original_side": "top"
+        },
+        {
+          "name": "VDD",
+          "x": 0.5625,
+          "y": 1.0,
+          "original_side": "top"
+        },
+        {
+          "name": "VDDPST",
+          "x": 0.9375,
+          "y": 1.0,
+          "original_side": "top"
+        },
+        {
+          "name": "VSS",
+          "x": 1.0,
+          "y": 0.0,
+          "original_side": "bottom"
+        }
+      ],
+      "device_lib": "tphn28hpcpgv18",
+      "device_cell": "PVSS3DGZ_V_G",
+      "device_view": "symbol"
+    },
+    "PVSS3DGZ_H_G": {
+      "center_x": 1.0,
+      "center_y": 0.5,
+      "pins": [
+        {
+          "name": "POC",
+          "x": 0.375,
+          "y": 1.0,
+          "original_side": "top"
+        },
+        {
+          "name": "VDD",
+          "x": 0.5625,
+          "y": 1.0,
+          "original_side": "top"
+        },
+        {
+          "name": "VDDPST",
+          "x": 0.9375,
+          "y": 1.0,
+          "original_side": "top"
+        },
+        {
+          "name": "VSS",
+          "x": 1.0,
+          "y": 0.0,
+          "original_side": "bottom"
+        }
+      ],
+      "device_lib": "tphn28hpcpgv18",
+      "device_cell": "PVSS3DGZ_H_G",
+      "device_view": "symbol"
+    },
     "PVSS2DGZ_V_G": {
       "center_x": 1.0,
       "center_y": 0.5,

@@ -360,6 +360,8 @@ def build_confirmed_config_from_io_config(
     if isinstance(editor_payload.get("ring_config"), dict):
         editor_payload["ring_config"]["process_node"] = "T28"
 
+    from .ring_rules import check_placed_ring
+    editor_payload["rule_review"] = check_placed_ring(editor_payload["instances"], editor_payload["ring_config"], generator)
     confirmed_path.parent.mkdir(parents=True, exist_ok=True)
     with open(confirmed_path, "w", encoding="utf-8") as f:
         json.dump(editor_payload, f, ensure_ascii=False, indent=2)

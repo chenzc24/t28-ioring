@@ -106,7 +106,9 @@ class VoltageDomainHandler:
                 # Digital domain, determine based on VDD/VSS label
                 vdd_label = pin_connection.get("VDD", {}).get("label", "")
                 vss_label = pin_connection.get("VSS", {}).get("label", "")
-                return f"DIGITAL_{vdd_label}_{vss_label}"
+                high_vdd = pin_connection.get("VDDPST", {}).get("label")
+                high_vss = pin_connection.get("VSSPST", {}).get("label", vss_label)
+                return repr(("digital", vdd_label, vss_label, high_vdd, high_vss))
             elif has_analog:
                 # Analog domain, determine based on TACVDD/TACVSS label
                 tacvdd_label = pin_connection.get("TACVDD", {}).get("label", "")
@@ -198,8 +200,8 @@ class VoltageDomainHandler:
         domain_key2 = VoltageDomainHandler.get_voltage_domain_key(component2)
         
         # If both are digital domains, check if they are the same digital domain
-        if domain_key1.startswith("DIGITAL_") and domain_key2.startswith("DIGITAL_"):
-            return domain_key1 == domain_key2
+        if all(VoltageDomainHandler.get_voltage_domain(c) == "digital" for c in (component1, component2)):
+            return VoltageDomainHandler.is_same_voltage_domain(component1, component2)
         
         return False
     
@@ -207,6 +209,8 @@ class VoltageDomainHandler:
     def is_same_voltage_domain(component1: dict, component2: dict) -> bool:
         """Determine if two components belong to the same voltage domain"""
         # Use get_voltage_domain_key to get the voltage domain key for comparison
+        if component1.get("domain") and component2.get("domain"):
+            return component1["domain"] == component2["domain"]
         key1 = VoltageDomainHandler.get_voltage_domain_key(component1)
         key2 = VoltageDomainHandler.get_voltage_domain_key(component2)
         

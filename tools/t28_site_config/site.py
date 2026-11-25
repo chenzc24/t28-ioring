@@ -280,7 +280,7 @@ def render_calibre_site_local_csh(repo_root: str | Path | None = None) -> str:
     ):
         value = _stringify(get_site_value(config, key_path))
         if value:
-            lines.append(f"setenv {env_name} {_csh_quote(value)}")
+            lines.append(f"if ( ! $?{env_name} ) setenv {env_name} {_csh_quote(value)}")
 
     for key_path in (("cadence", "cadence_cshrc"), ("calibre", "mentor_cshrc")):
         value = _stringify(get_site_value(config, key_path))

@@ -66,7 +66,7 @@ def check_via_virtuoso_bridge() -> tuple[bool, list]:
         report.append("• Start the tunnel with: virtuoso-bridge start")
         return False, report
 
-    test_command = "(1+1)"
+    test_command = "1+1"
     try:
         result = client.execute_skill(test_command, timeout=20)
     except Exception as e:

@@ -31,64 +31,11 @@ ${AMS_OUTPUT_ROOT}/lvs/
 ${AMS_OUTPUT_ROOT}/pex/
 ```
 
-Create `output_dir` once at Step 0 and reuse it for the full run. Do not regenerate the timestamp mid-flow.
+For individual commands create one run directory at the start. Use the absolute paths returned by that run for all later stages.
 
-## Step 0: Environment Setup
+## Step 0. Locate the tools
 
-Auto-detect paths from this skill root. Do not hard-code install paths.
-
-```bash
-SKILL_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
-SCRIPTS_PATH="${SKILL_ROOT}/scripts"
-export PYTHONPATH="${SKILL_ROOT}:${PYTHONPATH:-}"
-
-# REPO_ROOT owns _local/site.yaml and tools/t28_config_export.py.
-REPO_ROOT="$(cd "${SKILL_ROOT}" && while [ ! -f tools/t28_config_export.py ] && [ "$(pwd)" != "/" ]; do cd ..; done; pwd)"
-
-# VENV_ROOT may be the parent workspace that contains both t28-ioring/ and virtuoso-bridge-lite/.
-VENV_ROOT="$(cd "${SKILL_ROOT}" && while [ ! -d .venv ] && [ "$(pwd)" != "/" ]; do cd ..; done; pwd)"
-if   [ -f "${VENV_ROOT}/.venv/Scripts/python.exe" ]; then export AMS_PYTHON="${VENV_ROOT}/.venv/Scripts/python.exe"
-elif [ -f "${VENV_ROOT}/.venv/bin/python" ];         then export AMS_PYTHON="${VENV_ROOT}/.venv/bin/python"
-elif [ -f "${SKILL_ROOT}/.venv/Scripts/python.exe" ];   then export AMS_PYTHON="${SKILL_ROOT}/.venv/Scripts/python.exe"
-elif [ -f "${SKILL_ROOT}/.venv/bin/python" ];           then export AMS_PYTHON="${SKILL_ROOT}/.venv/bin/python"
-elif command -v python3 >/dev/null 2>&1;                then export AMS_PYTHON="python3"
-elif command -v python  >/dev/null 2>&1;                then export AMS_PYTHON="python"
-else echo "ERROR: No Python 3.9+ found."; return 1; fi
-
-if [ -f "${REPO_ROOT}/tools/t28_config_export.py" ]; then
-  eval "$("$AMS_PYTHON" "${REPO_ROOT}/tools/t28_config_export.py" --shell sh)"
-fi
-
-if [ -n "${AMS_IO_AGENT_PATH:-}" ]; then WORK_ROOT="${AMS_IO_AGENT_PATH}"; else WORK_ROOT="${REPO_ROOT}"; fi
-if [ -z "${AMS_OUTPUT_ROOT:-}" ]; then export AMS_OUTPUT_ROOT="${WORK_ROOT}/output"; fi
-mkdir -p "${AMS_OUTPUT_ROOT}/generated"
-
-if [ -n "${output_dir:-}" ] && [ -d "${output_dir}" ]; then
-  echo "Reusing existing output_dir: ${output_dir}"
-else
-  timestamp="${timestamp:-$(date +%Y%m%d_%H%M%S)}"
-  output_dir="${AMS_OUTPUT_ROOT}/generated/${timestamp}"
-fi
-mkdir -p "$output_dir"
-
-[ "${AMS_DRAFT_EDITOR:-}" = "on" ] || export AMS_DRAFT_EDITOR="off"
-[ "${AMS_LAYOUT_EDITOR:-}" = "on" ] || export AMS_LAYOUT_EDITOR="off"
-```
-
-All subsequent commands use `$AMS_PYTHON`.
-
-Required generator configuration:
-
-- `_local/site.yaml` at the repository root.
-- `~/.virtuoso-bridge/.env`, created by `virtuoso-bridge init`, for bridge connection values.
-- Confirm site-specific DRC/LVS/PEX rule assets under `calibre/T28/` match the actual PDK deck before verification.
-- Confirm `calibre.pdk_layermap_28` and `calibre.lvs_include_28` in `_local/site.yaml` match the actual T28 layer map and LVS source/include files.
-- Confirm `cadence.cds_lib_28` DEFINEs the IO device library and physical PAD library used by `io_ring/layout/config/lydevices_28.json` (`tphn28hpcpgv18` and `PAD` by default).
-
-Optional:
-
-- `generator.draft_editor` in `_local/site.yaml`, exported as `AMS_DRAFT_EDITOR`
-- `generator.layout_editor` in `_local/site.yaml`, exported as `AMS_LAYOUT_EDITOR`
+Use the repository checkout containing `tools/t28_config_check.py` and the sibling skills. Set `AMS_PYTHON` to the workspace Python executable and `SCRIPTS_PATH` to this skill’s `scripts` directory and use the Python interpreter with the workspace EDA dependencies. Run `python tools/t28_config_check.py` before live EDA. Site settings are in `_local/site.yaml`. The bridge reads its connection from `~/.virtuoso-bridge/.env`.
 
 ## Entry Points
 
@@ -160,6 +107,14 @@ Write semantic intent:
 
 Semantic intent must include per-instance device/domain/direction decisions but must not include generated corners or `_H_G` / `_V_G` device suffixes.
 
+For the normal headless flow, compile the semantic intent in one command (from the repository root).
+
+```sh
+python skills/t28-ioring-generator/scripts/prepare_ring.py io_ring_semantic_intent.json
+```
+
+Each invocation creates its own run directory and prints the path to `run.json`. Read the manifest for the input digest, generated filenames, gate results and pending integration measurements. A failed stage returns nonzero. A prepared run resumes at Step 7 if live OA execution was requested. If an editor or an existing intermediate file is involved, use the individual stages below.
+
 Run the enrichment engine:
 
 ```bash
@@ -190,7 +145,7 @@ Exit handling:
 
 ## Step 5: Build Confirmed Config
 
-If `AMS_LAYOUT_EDITOR=on`, ask whether to open the confirmation editor. If it is off, skip automatically.
+Open the editor when requested or enabled in the site settings. Use headless confirmation otherwise.
 
 Open editor:
 
@@ -255,18 +210,12 @@ Maximum two repair attempts.
 ## Step 10: Run LVS
 
 ```bash
-$AMS_PYTHON "$SCRIPTS_PATH/run_lvs.py" "$lib" "$cell" layout T28
+$AMS_PYTHON "$SCRIPTS_PATH/run_lvs.py" "$lib" "$cell" layout T28 --intent "$output_dir/io_ring_confirmed.json"
 ```
 
-On failure, identify mismatch class:
+Each DRC/LVS invocation records `result.json` and raw summaries in a unique directory under the corresponding verification root. LVS uses literal power/ground virtual connects and requires a correct comparison and zero ERC results. Investigate each remaining marker using its location and root cause. A rename experiment can isolate name sensitivity. It does not waive residual violations.
 
-- net mismatch
-- missing device
-- pin mismatch
-- shorts
-- opens
-
-Prefer semantic intent or confirmed config repair before pin-level generator changes. Maximum two repair attempts.
+For chip DRC, pass `--chip-deck /eda/path/to/release_matched_full_chip_deck` to `run_drc.py` and select the chip top. Review the effective deck and any foundry-specific exclusions. Refer to the chip integration evidence in `references/enrichment_rules_T28.md` before reporting chip signoff.
 
 ## Optional: Run PEX
 
