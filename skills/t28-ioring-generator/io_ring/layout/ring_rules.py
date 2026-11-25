@@ -187,7 +187,8 @@ def check_placed_ring(cells, config, generator):
     results["repeated_analog_ports"] = {k: v for k, v in repeated.items() if len(v) > 1}
     if results["repeated_analog_ports"]:
         pending.append(
-            "Route repeated analog ports to their common net and check extracted LVS connectivity."
+            "Locate the physical join for each repeated analog port and verify it "
+            "with extracted LVS at the hierarchy level containing the complete route."
         )
     return results
 

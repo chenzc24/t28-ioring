@@ -209,6 +209,8 @@ Maximum two repair attempts.
 
 ## Step 10: Run LVS
 
+Record the library, cell, view and source netlist for this comparison. When checking a project regression, match the planned pad masters and positions to the revision that the integration script uses. If two pads share a signal, locate the metal and vias that join them. When the join runs through the parent or core, verify that path at the routed assembly top using its matching source and deck. Report the cell and assembly verdicts separately. After replacing an existing ring, check the parent’s pad landings and labels against the new pin coordinates.
+
 ```bash
 $AMS_PYTHON "$SCRIPTS_PATH/run_lvs.py" "$lib" "$cell" layout T28 --intent "$output_dir/io_ring_confirmed.json"
 ```
