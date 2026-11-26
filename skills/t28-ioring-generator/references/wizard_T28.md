@@ -1,40 +1,12 @@
 # IO Ring Wizard - T28 Reference
 
-This file defines the question and answer contract for the on-demand wizard used by the T28 flow.
-
-The wizard is NOT a standalone step. It is invoked only when Step 2 (draft build) or Step 3 (enrichment) decides that ambiguity must be resolved.
-
-Rule ownership note:
-- This file does not define classification, device mapping, pin mapping, or direction inference rules.
-- Those rules are owned by `enrichment_rules_T28.md`.
-- This file defines only what to ask and what to write back.
+Use these optional prompts for an unresolved geometry, domain, rail or direction decision that would change the requested placement or connectivity. Apply [the classification guidance](enrichment_rules_T28.md#classify-signals-and-assign-domains) to the information already available and continue the parts of the draft that can be resolved.
 
 ---
 
-## Scope
+## Use the answers
 
-Wizard responsibilities:
-1. Ask focused clarification questions for ambiguity cases raised by Step 2/3.
-2. Return structured constraints in a stable schema.
-3. Provide W5 final confirmation before generation proceeds.
-
-Wizard non-responsibilities:
-1. Do not decide when wizard should be called.
-2. Do not run full auto-classification logic.
-3. Do not redefine device/pin/direction rules already in enrichment.
-
----
-
-## Invocation Contract
-
-Caller (Step 2/3) must provide:
-- `reason`: short ambiguity reason
-- `context`: minimal affected signals/positions/domains
-- `current_proposal`: what the flow currently infers
-
-Wizard returns:
-- `wizard_constraints` with only the fields required by the specific ambiguity
-- `confirmation` status from W5
+State the affected signals, positions or domains, the current proposal, and the specific choice to resolve. Include only answered fields in your working notes. Copy geometry answers into the draft and the device, direction and rail answers into the semantic plan. Keep undecided items in the handoff and proceed with the requested generation when the plan is ready.
 
 ---
 
@@ -42,7 +14,7 @@ Wizard returns:
 
 Use one or more modules depending on ambiguity type.
 
-### Module G - Geometry Clarification (Step 2 only)
+### Clarify geometry
 
 Use when draft builder cannot uniquely resolve geometry.
 
@@ -73,8 +45,8 @@ Allowed answer classes:
 - `analog_io`
 - `analog_power_provider`
 - `analog_ground_provider`
-- `analog_power_consumer`
-- `analog_ground_consumer`
+- `analog_power_consumer` for a dedicated macro supply
+- `analog_ground_consumer` for a dedicated macro ground
 - `digital_io`
 - `digital_power_low`
 - `digital_ground_low`
@@ -125,29 +97,6 @@ Question pattern:
 Output field:
 - `manual_overrides.directions[{position_key}]`
 
-### Module W5 - Final Confirmation (Required)
-
-W5 is kept as a mandatory final confirmation entry.
-
-Before asking, print a concise plan summary:
-- geometry
-- resolved overrides
-- inferred digital provider mapping
-- affected signals list
-
-Confirmation question:
-- "Plan ready. Proceed to generate?"
-
-Recommended options:
-- Generate now
-- Fix one item
-- Cancel
-
-Output field:
-- `confirmation.action`
-
----
-
 ## Constraint Output Schema
 
 Only include fields that were actually asked.
@@ -184,9 +133,6 @@ Only include fields that were actually asked.
       "high_vdd": "IOVDDH",
       "high_vss": "GIOH"
     }
-  },
-  "confirmation": {
-    "action": "generate|fix|cancel"
   }
 }
 ```
@@ -197,19 +143,15 @@ Notes:
 
 ---
 
-## AskUserQuestion Usage Rules
+## Focused questions
 
 1. Print current state in plain text before each question batch.
-2. Ask only about ambiguous items provided by Step 2/3.
-3. Keep one question to one decision.
-4. Use "Other" for free-text overrides when needed.
-5. Do not ask for decisions unrelated to current ambiguity scope.
+2. Keep one question to the unresolved decision.
+3. Accept the user's terms and explicit overrides.
 
 ---
 
 ## Minimal Checklist
 
-- Asked only the ambiguity items provided by caller
-- Returned only required override fields
-- Preserved position-based identity for duplicated signal names
-- Completed W5 final confirmation
+- Applied the supplied answers to the plan.
+- Preserved position-based identity for duplicated signal names.

@@ -15,6 +15,14 @@ def check_placed_ring(cells, config, generator):
         return {"warnings": [f"Placement review incomplete: {exc}"]}
 
 
+def _corner_neighbour(cells):
+    """Find the first functional cell or power cut on one side of a corner."""
+    return next(
+        (c for c in cells if c["type"] != "filler" or c["device"] in CUTS),
+        None,
+    )
+
+
 def _review_placement(cells, config, generator):
     warnings = []
     width, height = config["chip_width"], config["chip_height"]
@@ -40,6 +48,7 @@ def _review_placement(cells, config, generator):
     ):
         warnings.append("Expected one corner at each vertex of a full ring")
     ordered = []
+    side_cells = {}
     for orientation, (name, length, project) in edges.items():
         if coords[name] in corners:
             ordered.append(corners[coords[name]])
@@ -51,13 +60,16 @@ def _review_placement(cells, config, generator):
                 if not isclose(offset, 0, abs_tol=1e-6):
                     warnings.append(f"{c['name']} lies off the {name} edge")
                 edge.append((end, size, c))
+        placed = []
         previous = corner
         for end, size, c in sorted(edge, key=lambda item: item[0]):
             if not isclose(end - size, previous, abs_tol=1e-6):
                 warnings.append(f"Gap or overlap at {c['name']} on {name} edge")
             c["_width"] = size
-            ordered.append(c)
+            placed.append(c)
             previous = end
+        side_cells[name] = placed
+        ordered.extend(placed)
         if not isclose(previous, length - corner, abs_tol=1e-6):
             warnings.append(f"Incomplete edge at {name}")
     if len(ordered) != len(absolute):
@@ -68,22 +80,32 @@ def _review_placement(cells, config, generator):
     if not anchors:
         warnings.append("Ring has no functional cells")
         return {"warnings": warnings}
+    sides = list(side_cells)
+    for i, side in enumerate(sides):
+        c = corners.get(coords[side])
+        if c is None:
+            continue
+        allowed = {
+            "PCORNER_G": {"PVSS2DGZ", "PVSS3DGZ"},
+            "PCORNERA_G": {"PVSS3A", "PVSS3AC"},
+        }.get(c["device"], set())
+        neighbours = (
+            _corner_neighbour(reversed(side_cells[sides[i - 1]])),
+            _corner_neighbour(side_cells[side]),
+        )
+        if not all(
+            p is not None and base_device(p) in allowed and p.get("bonded", True)
+            for p in neighbours
+        ):
+            warnings.append(
+                f"{c['name']}: {c['device']} needs adjacent bonded grounds on both sides (6.2, 9.8.2)"
+            )
+
     n = len(ordered)
     for i, c in enumerate(ordered):
         dev = c["device"]
-        neighbours = [ordered[(i + d) % n] for d in (-1, 1)]
-        if c["type"] == "corner":
-            allowed = {
-                "PCORNER_G": {"PVSS2DGZ", "PVSS3DGZ"},
-                "PCORNERA_G": {"PVSS3A", "PVSS3AC"},
-            }.get(dev, set())
-            if not all(
-                base_device(p) in allowed and p.get("bonded", True) for p in neighbours
-            ):
-                warnings.append(
-                    f"{c['name']}: {dev} needs adjacent bonded grounds on both sides (6.2, 9.8.2)"
-                )
-        elif dev == "PRCUTA_G":
+        if dev == "PRCUTA_G":
+            neighbours = [ordered[(i + d) % n] for d in (-1, 1)]
             if not any(base_device(p) in ANALOG_PG for p in neighbours):
                 warnings.append(
                     f"{c['name']}: PRCUTA_G needs adjacent analog power or ground (9.8.3)"

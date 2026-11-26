@@ -14,6 +14,8 @@ sys.path[:0] = [str(GEN), str(SKILLS / "t28-ioring-simulator")]
 from io_ring.layout.auto_filler import AutoFillerGeneratorT28
 from io_ring.layout.confirmed_config import build_confirmed_config_from_io_config
 from io_ring.layout.enrichment_engine import _check_supply_plan, enrich
+from io_ring.layout.generator import LayoutGeneratorT28
+from io_ring.layout.ring_rules import check_placed_ring
 from io_ring.verification import cell_check
 from io_ring.verification.cell_check import evaluate
 from sim_io.sim.run import _upload_setup
@@ -71,6 +73,9 @@ class RuleTests(unittest.TestCase):
                 str(graph), skip_editor_confirmation=True
             )
             review = json.loads(Path(out).read_text(encoding="utf-8"))["rule_review"]
+            self.assertFalse(
+                any("adjacent bonded grounds" in w for w in review["warnings"])
+            )
             (path,) = review["vss_bus"]
             self.assertGreater(path["estimated_ohm"], 0)
             self.assertTrue(
@@ -142,15 +147,38 @@ class RuleTests(unittest.TestCase):
         )
 
     def test_corner_guidance_allows_confirmation(self):
-        plan = analog_ring()
-        plan["instances"][0].update(name="VIN2", device="PDB3AC")
+        for change in ({"name": "VIN2", "device": "PDB3AC"}, {"bonded": False}):
+            with self.subTest(change=change):
+                plan = analog_ring()
+                plan["instances"][0].update(change)
+                confirmed = build_confirmed_config_from_io_config(
+                    str(self.expand(plan)), skip_editor_confirmation=True
+                )
+                data = json.loads(Path(confirmed).read_text(encoding="utf-8"))
+                corner_warnings = [
+                    w for w in data["rule_review"]["warnings"]
+                    if "adjacent bonded grounds" in w
+                ]
+                self.assertEqual(len(corner_warnings), 1)
+                self.assertTrue(corner_warnings[0].startswith("CORNER_BOTTOMLEFT:"))
+
+    def test_corner_ground_search_stops_at_a_cut(self):
         confirmed = build_confirmed_config_from_io_config(
-            str(self.expand(plan)), skip_editor_confirmation=True
+            str(self.expand(analog_ring())), skip_editor_confirmation=True
         )
         data = json.loads(Path(confirmed).read_text(encoding="utf-8"))
-        self.assertIn(
-            "adjacent bonded grounds", " ".join(data["rule_review"]["warnings"])
+        spacer = next(
+            cell for cell in data["instances"] if cell["name"] == "left_start_0"
         )
+        spacer["device"] = "PRCUTA_G"
+        generator = LayoutGeneratorT28()
+        generator.set_config(data["ring_config"])
+        review = check_placed_ring(data["instances"], data["ring_config"], generator)
+        corner_warnings = [
+            w for w in review["warnings"] if "adjacent bonded grounds" in w
+        ]
+        self.assertEqual(len(corner_warnings), 1)
+        self.assertTrue(corner_warnings[0].startswith("CORNER_BOTTOMLEFT:"))
 
     def test_supply_only_domain(self):
         plan = analog_ring()

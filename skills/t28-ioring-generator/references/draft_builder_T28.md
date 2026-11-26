@@ -2,8 +2,7 @@
 
 ## Purpose
 
-Build a stable draft intent JSON from user-provided structural inputs only.
-This phase MUST avoid device/pin/corner inference and produce a deterministic handoff file for Phase 2.
+Build a structural draft intent JSON and carry supplied device, pin and domain choices into the semantic plan. Resolve new device, wiring and domain choices during enrichment.
 
 ## Scope and Boundaries
 
@@ -16,14 +15,6 @@ This phase MUST avoid device/pin/corner inference and produce a deterministic ha
 - Set `type` as `pad` or `inner_pad`
 - Preserve signal order and duplicates
 
-### Forbidden in Phase 1
-
-- No `device` field
-- No `pin_connection` field
-- No `direction` field
-- No corner insertion
-- No voltage-domain classification
-
 ## Input Contract
 
 Required inputs:
@@ -34,7 +25,7 @@ Required inputs:
 - `placement_order` (`clockwise` or `counterclockwise`; default `counterclockwise` if user does not specify)
 - optional inner-pad insertion descriptions
 
-Optional on-demand wizard inputs (when Step 2 requests clarification):
+Optional inputs from [geometry clarification](wizard_T28.md#clarify-geometry):
 
 - `geometry.placement_order`
 - `geometry.starting_side`
@@ -46,6 +37,8 @@ Input precedence for draft build:
 1. Explicit user structural input
 2. On-demand wizard `geometry` fields
 3. Draft default fallback (`placement_order = counterclockwise` only when still unspecified)
+
+If the user supplies only the total number of outer pads and allows equal side counts, a count divisible by four gives a provisional square draft. State the proposed side counts and keep the signal order. Use the specified side counts or footprint when the user supplies them.
 
 ## Output Contract (Draft JSON)
 

@@ -1,8 +1,32 @@
 # T28 semantic intent
 
-Work from the signal list, package bond map, supply specification and placement order. Give every position its own identity. Preserve duplicate signal names and explicit assignments through both rows of a staggered ring. An unresolved voltage or domain assignment belongs in the planning report. Ask the designer when existing inputs cannot resolve a decision that changes connectivity.
+Start with the signal list. Use the schematic, supply specification, package bond map and placement order when supplied. Give every pad position its own identity and preserve duplicate signal names through both rows of a staggered ring.
 
 The checks produce advisory findings. Each designer controls the device, wiring and placement. Explicit pin_connection entries and per-position pin_overrides take precedence over default wiring and the suggested global VSS. Confirmed geometry can be edited directly. Use ring_config.auto_fill=false or auto_corners=false to author placement. Automatic placement defaults to the historical 20 µm corner spacers.
+
+## Classify signals and assign domains
+
+Convert a text request, image or structural draft to `instances[].device`, `domain`, and `direction`, and to the rail roles in `domains`. Use explicit assignments first, then the approved schematic or interface description, then the cues below for a provisional plan.
+
+| Cue | Provisional interpretation |
+|---|---|
+| `VINP`, `VINN`, `VCM`, `VREFP`, `VREFN`, `IBIAS` | Analog signal or bias. Use `PDB3AC` for a compatible core-voltage analog path. An explicit supply assignment takes precedence. |
+| `SDI`, `RST`, `SCK`, `SLP` | Likely digital inputs when they serve the corresponding control or receive function. |
+| `SDO`, `CLKO`, ADC result bus | Likely digital outputs when the chip drives them. Names such as `D0`, `DCLK` and `SYNC` can serve either direction. Use interface ownership and function to decide. |
+| `AVDD`/`AVSS`, `VIOL`/`GIOL`, `VIOH`/`GIOH` | Possible analog supply, digital core supply, and digital IO supply pairs. Check net ownership and voltage before committing a pairing. Treat generic `VDD`, `VSS`, `DVDD` and `DVSS` as names to resolve from that evidence. |
+
+Start with one provisional analog domain when the analog signals share one identifiable supply pair and the plan gives no independent analog rails. Choose the pair that feeds the abutted bus. Plan distinct rail pairs independently. Use ring order to locate the domain boundaries after classification. A repeated supply name can occupy multiple pads, and identical names at distinct positions retain their own assignments.
+
+| Digital rail role | Usual provider master |
+|---|---|
+| `low_vdd` | `PVDD1DGZ` |
+| `low_vss` | `PVSS1DGZ` |
+| `high_vdd` | `PVDD2POC` for the POC source in a domain with functional digital IO, then `PVDD2DGZ` for additional pads |
+| `high_vss` | `PVSS2DGZ` |
+
+Use `PVSS3DGZ` where the design intentionally joins both grounds. For digital signals, `PDDW16SDGZ` is a starting point when its library characteristics suit the draft. Select `PRUW08SDGZ` when the specified master or drive requirement calls for it. Set `direction` from the signal function on each outer or inner digital IO pad. The enrichment engine uses the wire table to resolve pins from those declared choices, including the direction-dependent configuration pins.
+
+Before handing off the plan, check that each requested pad position is present, each provider net appears on a matching supply pad, and each digital IO direction matches the available interface evidence. Record inferred choices and unresolved fields. For a specific ambiguity that would change connectivity, use the [clarification prompts](wizard_T28.md) and fold any answer into the plan. Continue the parts of the requested work that have enough information.
 
 ## Input fields
 
@@ -53,7 +77,7 @@ Partial example showing field shapes. The supply counts and neighbour checks bel
 | `domains[].low_vdd` / `low_vss` / `high_vdd` / `high_vss` | Digital domains | string | The four rail roles. Use a common ground with PVSS3DGZ. |
 | `global.vss_ground` | Optional | string | Universal VSS label (default `"GIOL"`) |
 | `global.ring_esd` | No | string or null | If set, ring-wide ESD signal name (explicit pad VSS assignments take precedence) |
-| `overrides` | No | object | Per-position pin label overrides — see §6.2 |
+| `overrides` | No | object | [Per-position pin label overrides](#override-pin-wiring) |
 
 
 Record nominal `core_voltage` and `io_voltage` in volts for each domain. On each pad `bonded` defaults to true for historical fully bonded plans. Mark dummy cells false and reconcile the planned count with the package drawing. The generator uses a voltage specification for planning; actual library voltage ranges come from the applicable release.
@@ -69,11 +93,13 @@ Record nominal `core_voltage` and `io_voltage` in volts for each domain. On each
 
 ## Plan the perimeter
 
-Place bonded grounds immediately on both sides of every corner. Use PVSS3A/AC at analog corners and PVSS2DGZ/3DGZ at digital corners. Locate domain boundaries on a side. PRCUTA_G requires an adjacent analog 3A/3AC power or ground cell. PRCUT_G separates digital domains and needs a bonded PVSS1DGZ/3DGZ within two cell widths on each side. Budget the 20 µm separator when placing inner pads. The layout check uses the final ordered cells and their physical widths. If a fixed side order cannot meet a rule, report the failing positions before proposing a new order.
+Plan a bonded ground as the first functional cell on both sides of each corner. Use PVSS3A/AC at analog corners and PVSS2DGZ/3DGZ at digital corners. The corner advisory scans each side separately, skips ordinary filler and stops at a power cut. Application Note §§6.2, 9.8.2 and 10.9 call for nearby bonded grounds for ESD. Review the actual spacer distance and discharge path when qualifying the assembled ring.
+
+Locate domain boundaries on a side. PRCUTA_G requires an adjacent analog 3A/3AC power or ground cell. PRCUT_G separates digital domains and needs a bonded PVSS1DGZ/3DGZ within two cell widths on each side. Budget the 20 µm separator when placing inner pads. The layout check uses the final ordered cells and their physical widths. If a fixed side order cannot meet a rule, report the failing positions before proposing a new order.
 
 Use the same_domain_bus rows to identify the longest uncut path for each bonded master pair in a domain. Match the pair and circuit topology to Tables 8.1 and 10.1 and check the extracted resistance. Planning distances include both corner legs. Set ring_config.bus_ohm_per_um to a mapping from domain ID to a calibrated conservative resistance per micron to flag estimates above the tabulated limits for supported master pairs. A null limit requires a release-specific review. Check the Table 10.1 circuit-between-pads exception during extraction. An optional `ring_config.vss_ohm_per_um` yields a uniform-resistance planning estimate for PDB3AC. Supply the coefficient from this library and stack. The `rule_review.vss_bus` rows identify the positions to measure after extraction. The global bus requirement in checklist 23y.3 is below 1 Ω.
 
-### 6.2 Override Syntax
+## Override pin wiring
 
 For unusual cases where the AI needs to bypass the engine's standard wiring (e.g., novel PDK device, special-net requirement), use the `overrides` field in semantic intent:
 
@@ -97,7 +123,7 @@ For unusual cases where the AI needs to bypass the engine's standard wiring (e.g
 | Plain string (e.g. `"SPECIAL_VSS_BUS"`) | Used as literal label, no resolution |
 | `"label_from:<ref>"` prefix | Resolved through the standard `label_from` machinery (e.g. `domain.vss_provider`, `global.vss_ground`, `self_core`) |
 
-Use overrides sparingly — they are an escape hatch, not a default tool. If you find yourself overriding the same pin on the same device class repeatedly, the wiring table likely needs updating.
+Use overrides for explicit per-position wiring choices.
 
 
 ## Chip integration evidence
