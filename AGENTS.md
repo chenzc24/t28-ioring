@@ -70,7 +70,7 @@ T28 setup is not read from skill-local `.env` files or project `.env` files. Do 
 
 ## Generator Guardrails
 
-Follow `skills/t28-ioring-generator/SKILL.md` for workflow order, exit-code handling, and DRC/LVS repair-loop limits.
+The generator supplies scaffolding and design recommendations. User choices override its defaults. Run the requested stages even when design checks find deviations. Record the tool verdicts and the selected scope.
 
 Preserve user intent:
 
@@ -125,7 +125,7 @@ Prefer the earliest safe repair:
 
 Follow `skills/t28-ioring-simulator/SKILL.md` for symbol export, pin intent authoring, testbench build, and Spectre run order.
 
-Do not skip the LLM authoring step for real validation:
+For a new simulation, the following steps provide suggested stimuli and measurements. Accept user-authored configurations and partial classifications:
 
 1. Read `references/pin_classification.md`.
 2. Read `<run_dir>/pin_info.json`.

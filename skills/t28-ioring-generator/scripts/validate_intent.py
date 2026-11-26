@@ -9,8 +9,7 @@ Usage:
     python validate_intent.py <config_file_path>
 
 Exit Codes:
-    0 - Validation passed
-    1 - Validation failed
+    0 - Review completed, including any advisory findings
     2 - File or JSON error
 """
 

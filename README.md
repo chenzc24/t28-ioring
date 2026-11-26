@@ -240,33 +240,15 @@ Do not create skill-local `.env` files for T28 setup; T28 code does not read the
 
 ## Generator Workflow
 
-Use `t28-ioring-generator` for IO ring creation:
+To compile an existing semantic plan, run this command from the repository root with the project Python environment active.
 
-```text
-Generate a T28 IO ring with 4 pads per side, single ring, counterclockwise placement.
-Signals: VIN VSSIB VDDIB VCM D1 D2 D3 D4 VIOL GIOL VIOH GIOH.
-Library: LLM_Layout_Design. Cell: IO_RING_4x4_mixed.
+```sh
+python skills/t28-ioring-generator/scripts/prepare_ring.py io_ring_semantic_intent.json
 ```
 
-Pipeline:
+The command prints a run-specific `run.json` with stage status, artifacts, hashes and rule checks. From a text pin list, use the generator skill to resolve missing domain, placement and package decisions before compiling. The prepared manifest identifies the schematic and layout scripts for Virtuoso. DRC and LVS each create a separate `result.json` alongside the Calibre reports. Design recommendations are advisory. A completed check returns zero and reports the DRC count, LVS comparison and ERC count separately. Users can supply their own verification wrapper with --deck. On a shared EDA host, --threads 2 runs the same deck with two Calibre workers.
 
-1. Parse structural requirements.
-2. Build draft intent JSON.
-3. Optionally open the draft editor.
-4. Generate semantic intent and enriched pin-wired graph.
-5. Validate JSON.
-6. Build confirmed config.
-7. Generate schematic/layout SKILL.
-8. Execute SKILL in Virtuoso and capture screenshots.
-9. Run DRC/LVS and optional PEX.
-
-Primary output:
-
-```text
-output/generated/<timestamp>/
-```
-
-Full procedural details are in `skills/t28-ioring-generator/SKILL.md`.
+See the [generator workflow](skills/t28-ioring-generator/SKILL.md) and the [T28 rule audit and 9×9 reproduction](docs/t28-rule-audit.md).
 
 ## Simulator Workflow
 

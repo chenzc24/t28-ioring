@@ -141,7 +141,9 @@ if ( $#argv == 5 ) then
         set runDir = "$PROJECT_ROOT/$argv[5]"
     endif
 else
-    if ( $?PEX_RUN_DIR ) then
+    if ( $?AMS_OUTPUT_ROOT ) then
+        set runDir = "$AMS_OUTPUT_ROOT/pex"
+    else if ( $?PEX_RUN_DIR ) then
         set runDir = "$PEX_RUN_DIR"
     else
         set runDir = "${PROJECT_ROOT}/output/pex"

@@ -9,6 +9,10 @@ Generate T28 IO ring schematic/layout artifacts from requirements and verify the
 
 Use this skill for generation. Use `t28-ioring-simulator` for testbench construction, pin stimulus/load placement, Spectre, and Maestro setup.
 
+## Design choices
+
+Use the application note and the bundled checks as recommendations. Preserve user-selected masters, nets, placements and verification settings. Record deviations in the run report and continue the requested stages. A user can start from a semantic plan, an edited intent graph or a confirmed layout.
+
 ## Output Contract
 
 Use one shared output root:
@@ -31,64 +35,11 @@ ${AMS_OUTPUT_ROOT}/lvs/
 ${AMS_OUTPUT_ROOT}/pex/
 ```
 
-Create `output_dir` once at Step 0 and reuse it for the full run. Do not regenerate the timestamp mid-flow.
+For individual commands create one run directory at the start. Use the absolute paths returned by that run for all later stages.
 
-## Step 0: Environment Setup
+## Step 0. Locate the tools
 
-Auto-detect paths from this skill root. Do not hard-code install paths.
-
-```bash
-SKILL_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
-SCRIPTS_PATH="${SKILL_ROOT}/scripts"
-export PYTHONPATH="${SKILL_ROOT}:${PYTHONPATH:-}"
-
-# REPO_ROOT owns _local/site.yaml and tools/t28_config_export.py.
-REPO_ROOT="$(cd "${SKILL_ROOT}" && while [ ! -f tools/t28_config_export.py ] && [ "$(pwd)" != "/" ]; do cd ..; done; pwd)"
-
-# VENV_ROOT may be the parent workspace that contains both t28-ioring/ and virtuoso-bridge-lite/.
-VENV_ROOT="$(cd "${SKILL_ROOT}" && while [ ! -d .venv ] && [ "$(pwd)" != "/" ]; do cd ..; done; pwd)"
-if   [ -f "${VENV_ROOT}/.venv/Scripts/python.exe" ]; then export AMS_PYTHON="${VENV_ROOT}/.venv/Scripts/python.exe"
-elif [ -f "${VENV_ROOT}/.venv/bin/python" ];         then export AMS_PYTHON="${VENV_ROOT}/.venv/bin/python"
-elif [ -f "${SKILL_ROOT}/.venv/Scripts/python.exe" ];   then export AMS_PYTHON="${SKILL_ROOT}/.venv/Scripts/python.exe"
-elif [ -f "${SKILL_ROOT}/.venv/bin/python" ];           then export AMS_PYTHON="${SKILL_ROOT}/.venv/bin/python"
-elif command -v python3 >/dev/null 2>&1;                then export AMS_PYTHON="python3"
-elif command -v python  >/dev/null 2>&1;                then export AMS_PYTHON="python"
-else echo "ERROR: No Python 3.9+ found."; return 1; fi
-
-if [ -f "${REPO_ROOT}/tools/t28_config_export.py" ]; then
-  eval "$("$AMS_PYTHON" "${REPO_ROOT}/tools/t28_config_export.py" --shell sh)"
-fi
-
-if [ -n "${AMS_IO_AGENT_PATH:-}" ]; then WORK_ROOT="${AMS_IO_AGENT_PATH}"; else WORK_ROOT="${REPO_ROOT}"; fi
-if [ -z "${AMS_OUTPUT_ROOT:-}" ]; then export AMS_OUTPUT_ROOT="${WORK_ROOT}/output"; fi
-mkdir -p "${AMS_OUTPUT_ROOT}/generated"
-
-if [ -n "${output_dir:-}" ] && [ -d "${output_dir}" ]; then
-  echo "Reusing existing output_dir: ${output_dir}"
-else
-  timestamp="${timestamp:-$(date +%Y%m%d_%H%M%S)}"
-  output_dir="${AMS_OUTPUT_ROOT}/generated/${timestamp}"
-fi
-mkdir -p "$output_dir"
-
-[ "${AMS_DRAFT_EDITOR:-}" = "on" ] || export AMS_DRAFT_EDITOR="off"
-[ "${AMS_LAYOUT_EDITOR:-}" = "on" ] || export AMS_LAYOUT_EDITOR="off"
-```
-
-All subsequent commands use `$AMS_PYTHON`.
-
-Required generator configuration:
-
-- `_local/site.yaml` at the repository root.
-- `~/.virtuoso-bridge/.env`, created by `virtuoso-bridge init`, for bridge connection values.
-- Confirm site-specific DRC/LVS/PEX rule assets under `calibre/T28/` match the actual PDK deck before verification.
-- Confirm `calibre.pdk_layermap_28` and `calibre.lvs_include_28` in `_local/site.yaml` match the actual T28 layer map and LVS source/include files.
-- Confirm `cadence.cds_lib_28` DEFINEs the IO device library and physical PAD library used by `io_ring/layout/config/lydevices_28.json` (`tphn28hpcpgv18` and `PAD` by default).
-
-Optional:
-
-- `generator.draft_editor` in `_local/site.yaml`, exported as `AMS_DRAFT_EDITOR`
-- `generator.layout_editor` in `_local/site.yaml`, exported as `AMS_LAYOUT_EDITOR`
+Use the repository checkout containing `tools/t28_config_check.py` and the sibling skills. Set `AMS_PYTHON` to the workspace Python executable and `SCRIPTS_PATH` to this skill’s `scripts` directory and use the Python interpreter with the workspace EDA dependencies. Run `python tools/t28_config_check.py` before live EDA. Site settings are in `_local/site.yaml`. The bridge reads its connection from `~/.virtuoso-bridge/.env`.
 
 ## Entry Points
 
@@ -121,14 +72,14 @@ Write:
 {output_dir}/io_ring_intent_graph_draft.json
 ```
 
-The draft JSON must contain only structural data:
+For a new draft, start with the structural fields:
 
 - `ring_config`
 - instance `name`
 - instance `position`
 - instance `type`
 
-Do not add `device`, `pin_connection`, `direction`, or generated corners in the draft.
+When an input already specifies devices or wiring, keep those choices in the semantic plan or resolved graph.
 
 ## Step 2: Optional Draft Editor
 
@@ -158,7 +109,15 @@ Write semantic intent:
 {output_dir}/io_ring_semantic_intent.json
 ```
 
-Semantic intent must include per-instance device/domain/direction decisions but must not include generated corners or `_H_G` / `_V_G` device suffixes.
+The usual semantic plan supplies pad masters, domains and IO directions. Explicit corners and `_H_G` / `_V_G` device suffixes take precedence over automatic choices.
+
+For the normal headless flow, compile the semantic intent in one command (from the repository root).
+
+```sh
+python skills/t28-ioring-generator/scripts/prepare_ring.py io_ring_semantic_intent.json
+```
+
+Each invocation creates its own run directory and prints the path to `run.json`. Read the manifest for the input digest, generated filenames, design recommendations and pending integration measurements. A failed stage returns nonzero. A prepared run resumes at Step 7 if live OA execution was requested. If an editor or an existing intermediate file is involved, use the individual stages below.
 
 Run the enrichment engine:
 
@@ -174,7 +133,6 @@ Exit handling:
 - `0`: proceed.
 - `1`: semantic input error; read stderr, fix semantic intent, rerun.
 - `2`: engine/wiring bug; stop and report.
-- `3`: gate failure; fix semantic classification and rerun.
 
 ## Step 4: Validate Intent JSON
 
@@ -185,12 +143,12 @@ $AMS_PYTHON "$SCRIPTS_PATH/validate_intent.py" "$output_dir/io_ring_intent_graph
 Exit handling:
 
 - `0`: proceed.
-- `1`: invalid output; report as engine or schema bug unless input was manually edited.
+- Design findings appear in the output and generation continues.
 - `2`: file not found.
 
 ## Step 5: Build Confirmed Config
 
-If `AMS_LAYOUT_EDITOR=on`, ask whether to open the confirmation editor. If it is off, skip automatically.
+Open the editor when requested or enabled in the site settings. Use headless confirmation otherwise.
 
 Open editor:
 
@@ -224,7 +182,7 @@ The scripts add timestamps to output filenames. Use the actual printed paths in 
 $AMS_PYTHON "$SCRIPTS_PATH/check_virtuoso_connection.py"
 ```
 
-If this fails, stop. Report generated files so far and instruct the user to start or repair Virtuoso bridge connectivity.
+If the GUI bridge is unavailable, use the configured batch Virtuoso workflow when available, or report which live stages could not execute.
 
 ## Step 8: Execute SKILL in Virtuoso
 
@@ -243,30 +201,19 @@ If a generated `.il` fails, read `references/skill_language_reference.md` before
 $AMS_PYTHON "$SCRIPTS_PATH/run_drc.py" "$lib" "$cell" layout T28
 ```
 
-On failure, follow the repair loop:
-
-1. Read the DRC report.
-2. Map errors to continuity, classification, device mapping, pin config, corner typing, or order.
-3. Prefer semantic intent/config fixes before generator code edits.
-4. Regenerate and rerun.
-
-Maximum two repair attempts.
+Record the DRC count and scope. Continue with LVS or other stages requested by the user. If a design change is requested, inspect the rule and coordinates before changing the layout.
 
 ## Step 10: Run LVS
 
+Record the library, cell, view and source netlist for this comparison. When checking a project regression, match the planned pad masters and positions to the revision that the integration script uses. If two pads share a signal, locate the metal and vias that join them. When the join runs through the parent or core, verify that path at the routed assembly top using its matching source and deck. Report the cell and assembly verdicts separately. After replacing an existing ring, check the parent’s pad landings and labels against the new pin coordinates.
+
 ```bash
-$AMS_PYTHON "$SCRIPTS_PATH/run_lvs.py" "$lib" "$cell" layout T28
+$AMS_PYTHON "$SCRIPTS_PATH/run_lvs.py" "$lib" "$cell" layout T28 --intent "$output_dir/io_ring_confirmed.json"
 ```
 
-On failure, identify mismatch class:
+Each invocation records raw summaries and result.json in its own directory. The exit code indicates whether execution and report collection completed. Report the DRC count, LVS comparison and ERC counts separately. The default LVS wrapper virtually connects listed supply rails. Supply a local wrapper with --deck to use the project’s own verification settings.
 
-- net mismatch
-- missing device
-- pin mismatch
-- shorts
-- opens
-
-Prefer semantic intent or confirmed config repair before pin-level generator changes. Maximum two repair attempts.
+For chip DRC, pass `--chip-deck /eda/path/to/release_matched_full_chip_deck` to `run_drc.py` and select the chip top. Review the effective deck and any foundry-specific exclusions. Refer to the chip integration evidence in `references/enrichment_rules_T28.md` before reporting chip signoff.
 
 ## Optional: Run PEX
 
@@ -274,12 +221,12 @@ Prefer semantic intent or confirmed config repair before pin-level generator cha
 $AMS_PYTHON "$SCRIPTS_PATH/run_pex.py" "$lib" "$cell" layout T28
 ```
 
-Run PEX only after LVS is clean or when the user explicitly asks.
+Run PEX when requested. Include the latest LVS comparison as context.
 
 ## Completion Checklist
 
 - [ ] All user signals preserved, including duplicates.
-- [ ] Draft JSON contains only structural fields.
+- [ ] The generated design preserves supplied placement, device and wiring choices.
 - [ ] Semantic intent follows `enrichment_rules_T28.md`.
 - [ ] Enrichment engine exits `0`.
 - [ ] `validate_intent.py` exits `0`.

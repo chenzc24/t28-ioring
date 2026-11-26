@@ -219,7 +219,7 @@ class SkillGeneratorT28:
                 skill_commands.append(f'dbCreatePath(cv list("{config_layer}" "drawing") list(list({x2} {y1}) list({x2} {y2})) {config_width} "extendExtend")')
                 skill_commands.append(f'dbCreatePath(cv list("{config_layer}" "drawing") list(list({x1l} {y1l}) list({x2l} {y1l})) {config_width} "extendExtend")')
                 skill_commands.append(f'dbCreatePath(cv list("{config_layer}" "drawing") list(list({x2l} {y1l}) list({x2l} {y2l})) {config_width} "extendExtend")')
-        
+
         # Secondary lines and pin labels only for digital IO pads
         offsets = skill_params.get("secondary_offsets", {"I": 1.725, "OEN": 5.9, "REN": 10.2, "C": 14.33})
         

@@ -80,7 +80,7 @@ class LayoutGeneratorT28:
         raw_position = instance.get("position", "")
         if isinstance(raw_position, str):
             return raw_position
-        return ""
+        return instance.get("position_str", "")
 
     def _parse_side_index(self, relative_position: str) -> Tuple[Optional[str], Optional[int]]:
         """Parse side-index format: top_0/right_2/bottom_5/left_1."""
@@ -233,8 +233,7 @@ class LayoutGeneratorT28:
             voltage_domain = instance.get("voltage_domain", {})
             pin_connection = instance.get("pin_connection", {})
             
-            has_relative_semantics = isinstance(relative_pos, str) and bool(relative_pos)
-            if isinstance(raw_position, (list, tuple)) and len(raw_position) == 2 and not has_relative_semantics:
+            if isinstance(raw_position, (list, tuple)) and len(raw_position) == 2:
                 position = [raw_position[0], raw_position[1]]
                 orientation = instance.get("orientation", "R0")
             else:
@@ -252,9 +251,12 @@ class LayoutGeneratorT28:
                 "name": name,
                 "device": device,
                 "position": position,
-                "orientation": orientation,
+                "orientation": instance.get("orientation", orientation),
             }
 
+            for key in ("bonded", "macro", "package_pin", "drive_factor", "pad_width", "pad_height"):
+                if key in instance:
+                    component[key] = instance[key]
             if relative_pos:
                 component["position_str"] = relative_pos
 
@@ -272,10 +274,6 @@ class LayoutGeneratorT28:
 
             converted_components.append(component)
         
-        # Check corners
-        has_corners = any(comp.get("type") == "corner" for comp in converted_components)
-        if not has_corners:
-            raise ValueError("[ERROR] Error: Corner components are missing in the intent graph!")
         
         # Handle inner pads
         for inner_pad in inner_pads:
@@ -290,7 +288,12 @@ class LayoutGeneratorT28:
             pin_connection = inner_pad.get("pin_connection", {})
             
             outer_pads_for_inner = [comp for comp in converted_components if comp.get("type") == "pad"]
-            position, orientation = self.inner_pad_handler.calculate_inner_pad_position(position_str, outer_pads_for_inner, ring_config)
+            raw = inner_pad.get("position")
+            if isinstance(raw, (list, tuple)) and len(raw) == 2:
+                position, orientation = list(raw), inner_pad.get("orientation", "R0")
+            else:
+                position, orientation = self.inner_pad_handler.calculate_inner_pad_position(position_str, outer_pads_for_inner, ring_config)
+                orientation = inner_pad.get("orientation", orientation)
             
             component = {
                 "type": "inner_pad",
@@ -397,7 +400,9 @@ def generate_layout_from_json(json_file: str, output_file: str = "generated_layo
         elif instance.get("type") == "corner":
             corners.append(instance)
 
-    chip_width, chip_height = generator.calculate_chip_size(outer_pads)
+    default_width, default_height = generator.calculate_chip_size(outer_pads)
+    chip_width = ring_config.get("chip_width", default_width)
+    chip_height = ring_config.get("chip_height", default_height)
 
     # Persist recomputed chip dimensions for all downstream consumers.
     ring_config["chip_width"] = chip_width
@@ -432,7 +437,7 @@ def generate_layout_from_json(json_file: str, output_file: str = "generated_layo
     generator.auto_filler_generator.config["chip_height"] = chip_height
     
     validation_components = outer_pads + corners
-    if existing_fillers or existing_separators:
+    if existing_fillers or existing_separators or not ring_config.get("auto_fill", True):
         print(f"[--] Detected filler components in JSON: {len(existing_fillers)} fillers, {len(existing_separators)} separators")
         all_components_with_fillers = []
         for comp in all_instances:
@@ -449,6 +454,8 @@ def generate_layout_from_json(json_file: str, output_file: str = "generated_layo
 
     final_components_input = list(all_components_with_fillers)
     
+    from .ring_rules import check_placed_ring
+    check_placed_ring(final_components_input, ring_config, generator)
     final_components = generator.convert_relative_to_absolute(chip_width, chip_height, final_components_input, ring_config)
     outer_pads = [comp for comp in final_components if comp.get("type") == "pad"]
     corners = [comp for comp in final_components if comp.get("type") == "corner"]
@@ -456,7 +463,7 @@ def generate_layout_from_json(json_file: str, output_file: str = "generated_layo
     all_components_with_fillers = final_components
     filler_components = [
         comp for comp in all_components_with_fillers
-        if comp.get("type") == "filler" or DeviceClassifier.is_filler_device(comp.get("device", ""))
+        if comp.get("type") in {"filler", "separator"} or DeviceClassifier.is_filler_device(comp.get("device", ""))
     ]
     
     # Generate SKILL script
@@ -486,10 +493,12 @@ def generate_layout_from_json(json_file: str, output_file: str = "generated_layo
         skill_commands.append(f'dbCreateParamInstByMasterName(cv "{ring_config.get("library_name", "tphn28hpcpgv18")}" "{device}" "{ring_config.get("view_name", "layout")}" "{sanitized_name}" list({x} {y}) "{orientation}")')
         
         # Add PAD60GU for pad components (28nm specific)
-        if component_type == "pad":
+        if component_type == "pad" and component.get("bonded", True):
             device_masters = ring_config.get("device_masters", {})
             pad_library = device_masters.get("pad_library", "PAD")
             pad_master = device_masters.get("pad60_master", "PAD60GU")
+            if VoltageDomainHandler.get_voltage_domain(component) == "analog":
+                pad_master = device_masters.get("analog_pad60_master", pad_master)
             sanitized_pad_name = generator.sanitize_skill_instance_name(f"pad60gu_{name}_{position_str}")
             skill_commands.append(f'dbCreateParamInstByMasterName(cv "{pad_library}" "{pad_master}" "layout" "{sanitized_pad_name}" list({x} {y}) "{orientation}")')
     
@@ -534,6 +543,24 @@ def generate_layout_from_json(json_file: str, output_file: str = "generated_layo
         pin_label_commands = []
     skill_commands.extend(pin_label_commands)
     skill_commands.append("")
+    # Label the real master terminal in top-level coordinates, including rotated inner pads.
+    for pad in outer_pads + inner_pads:
+        if not pad["device"].startswith("PVDD2POC_"):
+            continue
+        prefix = "inner_pad_" if pad["type"] == "inner_pad" else ""
+        instance = generator.sanitize_skill_instance_name(f"{prefix}{pad['name']}_{pad.get('position_str', 'abs')}")
+        poc = pad.get("pin_connection", {}).get("POC", {})
+        if not poc.get("label") or not poc.get("create_pin", True):
+            continue
+        label = poc["label"]
+        skill_commands.extend([
+            f'pocInst = dbFindAnyInstByName(cv {json.dumps(instance)})',
+            'pocTerm = dbFindTermByName(pocInst~>master "POC")',
+            'pocFig = car(pocTerm~>pins)~>fig',
+            'unless(pocFig error("Missing POC rail terminal on %s" pocInst~>name))',
+            'pocPoint = dbTransformPoint(centerBox(pocFig~>bBox) pocInst~>transform)',
+            f'dbCreateLabel(cv list(pocFig~>layerName "pin") pocPoint {json.dumps(label)} "centerCenter" "R0" "roman" 0.1)',
+        ])
     skill_commands.append("dbSave(cv)")
     skill_commands.append("t")
     

@@ -179,43 +179,33 @@ def _upload_calibre_tree(ssh, calibre_dir: Path, remote_base: str, timeout: int 
     # Windows temp-file ACL issues, antivirus locks, and paths with spaces.
     _staging = Path(os.environ.get("AMS_OUTPUT_ROOT", os.getcwd())) / ".calibre_staging"
     _staging.mkdir(parents=True, exist_ok=True)
-    tmp_path = _staging / f"calibre_upload_{os.getpid()}.tar.gz"
-    tmp_path.write_bytes(buf.read())
+    from tempfile import NamedTemporaryFile
 
+    with NamedTemporaryFile(dir=_staging, prefix="calibre_upload_", suffix=".tar.gz", delete=False) as archive:
+        tmp_path = Path(archive.name)
+        archive.write(buf.getbuffer())
+
+    remote_tar = f"{remote_base}/{tmp_path.name}"
     try:
-        # upload_file() streams via `tar cf - <file> | ssh "tar xf - -C <dir>"`
-        # so the remote file ends up at <remote_base>/<tmp_filename>.
-        remote_tar_name = tmp_path.name
-        up = ssh.upload_file(tmp_path, f"{remote_base}/{remote_tar_name}", timeout=timeout)
-        rc = getattr(up, "returncode", 1)
-        if rc != 0:
-            err = (getattr(up, "stderr", "") or "").strip()
-            return f"tarball upload failed: {err}"
-
-        # Unpack on remote (retry on transient failures)
-        remote_tar = f"{remote_base}/{remote_tar_name}"
-        max_retries = 3
-        last_err = ""
-        for attempt in range(1, max_retries + 1):
+        max_attempts = 3
+        for attempt in range(1, max_attempts + 1):
             try:
-                unpack = ssh.run_command(
-                    f"mkdir -p {shlex.quote(remote_base)} && "
-                    f"tar xzf {shlex.quote(remote_tar)} -C {shlex.quote(remote_base)}",
-                    timeout=60,
-                )
-                if getattr(unpack, "returncode", 1) == 0:
-                    # Clean up remote tarball
-                    ssh.run_command(f"rm -f {shlex.quote(remote_tar)}", timeout=10)
+                transfer = ssh.upload_file(tmp_path, remote_tar, timeout=timeout)
+                if transfer.returncode == 0:
+                    transfer = ssh.run_command(
+                        f"tar xzf {shlex.quote(remote_tar)} -C {shlex.quote(remote_base)} && "
+                        f"rm -f {shlex.quote(remote_tar)}",
+                        timeout=timeout,
+                    )
+                if transfer.returncode == 0:
                     return None
-                last_err = (getattr(unpack, "stderr", "") or "").strip()
-            except Exception as e:
-                last_err = str(e)
-            if attempt < max_retries:
-                wait = min(5 * (2 ** (attempt - 1)), 30)
-                print(f"[upload_calibre_tree] unpack attempt {attempt}/{max_retries} failed: {last_err[:200]}")
-                _time.sleep(wait)
-
-        return f"remote unpack failed after {max_retries} attempts: {last_err}"
+                error = (transfer.stderr or "").strip()
+            except Exception as exc:
+                error = str(exc)
+            if attempt < max_attempts:
+                print(f"[upload_calibre_tree] attempt {attempt}/{max_attempts}: {error[:200]}")
+                _time.sleep(5 * attempt)
+        return f"Calibre archive transfer failed after {max_attempts} attempts: {error}"
     finally:
         tmp_path.unlink(missing_ok=True)
 
@@ -278,14 +268,7 @@ def _detect_fs_mode(ssh, local_ams_root: str) -> str:
 
 def _download_calibre_output(ssh, remote_root: str, local_root: str, timeout: int = 180,
                             max_retries: int = 2, retry_delay: int = 10) -> Optional[str]:
-    """Pull `drc/` and `lvs/` subtrees and top-level `*_report*` files from
-    `remote_root` back to `local_root`. Returns None on success, or an error
-    string. Missing remote subdirs are silently skipped.
-
-    Retries up to ``max_retries`` times when downloaded directories are empty,
-    to handle Calibre writing summary files with a slight delay after the csh
-    script returns.
-    """
+    """Fetch the analysis directories produced by this isolated invocation."""
     import time as _time
 
     local_root_p = Path(local_root).expanduser().resolve(strict=False)
@@ -294,7 +277,7 @@ def _download_calibre_output(ssh, remote_root: str, local_root: str, timeout: in
     for attempt in range(1, max_retries + 2):          # 1 initial + max_retries
         try:
             listing = ssh.run_command(
-                f"ls -d {shlex.quote(remote_root)}/drc {shlex.quote(remote_root)}/lvs 2>/dev/null",
+                f"ls -d {shlex.quote(remote_root)}/drc {shlex.quote(remote_root)}/lvs {shlex.quote(remote_root)}/pex 2>/dev/null",
                 timeout=60,
             )
             present = [
@@ -318,17 +301,7 @@ def _download_calibre_output(ssh, remote_root: str, local_root: str, timeout: in
             except Exception as e:
                 return f"download {remote_dir} failed: {e}"
 
-        # Verify that at least one summary file landed in each subdirectory.
-        all_ok = True
-        for subdir in ("drc", "lvs"):
-            local_sub = local_root_p / subdir
-            if local_sub.is_dir():
-                has_content = any(local_sub.iterdir())
-                if not has_content:
-                    all_ok = False
-                    break
-
-        if all_ok:
+        if present and all(any((local_root_p / Path(p).name).iterdir()) for p in present):
             return None
 
         # Empty directory detected — retry after a short wait.
@@ -337,7 +310,7 @@ def _download_calibre_output(ssh, remote_root: str, local_root: str, timeout: in
                   f"output dirs empty, waiting {retry_delay}s before retry...")
             _time.sleep(retry_delay)
 
-    return None
+    return "No Calibre output downloaded"
 
 
 def execute_csh_script(script_path: str, *args, timeout: int = 600) -> str:
@@ -366,7 +339,8 @@ def execute_csh_script(script_path: str, *args, timeout: int = 600) -> str:
         return _run_local_csh(script_path, args, timeout)
 
     # ── Resolve user-scoped remote base (avoids /tmp collision on shared servers) ─
-    remote_base = _get_calibre_remote_base()
+    from uuid import uuid4
+    remote_base = f"{_get_calibre_remote_base()}/{uuid4().hex}"
 
     # ── Upload all calibre scripts as a single tarball ─────────────────────────
     upload_err = _upload_calibre_tree(ssh, calibre_dir, remote_base, timeout=120)
@@ -385,7 +359,7 @@ def execute_csh_script(script_path: str, *args, timeout: int = 600) -> str:
 
     if mode == "remote":
         remote_ams_root = f"{remote_base}/output_{cell_tag}"
-        ssh.run_command(f"mkdir -p {shlex.quote(remote_ams_root)}/drc {shlex.quote(remote_ams_root)}/lvs", timeout=10)
+
         print(f"[execute_csh_script] fs_mode=remote  remote AMS_OUTPUT_ROOT={remote_ams_root}")
     else:
         remote_ams_root = local_ams_root
@@ -398,6 +372,8 @@ def execute_csh_script(script_path: str, *args, timeout: int = 600) -> str:
 
     # Build env args for `env` command (explicit, works regardless of login shell)
     env_parts = []
+    if threads := os.environ.get("AMS_CALIBRE_THREADS"):
+        env_parts.append(f"AMS_CALIBRE_THREADS={shlex.quote(threads)}")
     if remote_ams_root:
         env_parts.append(f"AMS_OUTPUT_ROOT={shlex.quote(remote_ams_root)}")
     if cds_lib:
@@ -437,7 +413,7 @@ def execute_csh_script(script_path: str, *args, timeout: int = 600) -> str:
             ssh, remote_ams_root, local_ams_root, timeout=max(60, min(timeout, 300))
         )
         if dl_err:
-            print(f"[execute_csh_script] warn: {dl_err}")
+            return f"Remote output download failed: {dl_err}"
 
     if rc == 0:
         return stdout or "t"

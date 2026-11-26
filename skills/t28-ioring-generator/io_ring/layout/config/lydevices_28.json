@@ -71,7 +71,8 @@
     "PVSS1DGZ_V_G", "PVSS1DGZ_H_G",
     "PVDD2POC_V_G", "PVDD2POC_H_G",
     "PVDD2DGZ_V_G", "PVDD2DGZ_H_G",
-    "PVSS2DGZ_V_G", "PVSS2DGZ_H_G"
+    "PVSS2DGZ_V_G", "PVSS2DGZ_H_G",
+    "PVSS3DGZ_V_G", "PVSS3DGZ_H_G"
   ],
   "digital_io": [
     "PDDW16SDGZ_V_G", "PDDW16SDGZ_H_G",
@@ -82,7 +83,8 @@
     "PVSS1DGZ_V_G", "PVSS1DGZ_H_G",
     "PVDD2POC_V_G", "PVDD2POC_H_G",
     "PVDD2DGZ_V_G", "PVDD2DGZ_H_G",
-    "PVSS2DGZ_V_G", "PVSS2DGZ_H_G"
+    "PVSS2DGZ_V_G", "PVSS2DGZ_H_G",
+    "PVSS3DGZ_V_G", "PVSS3DGZ_H_G"
   ],
   "digital_pins":[
     "VDD","VSS","VDDPST","VSSPST"
@@ -124,7 +126,7 @@
   "filler_devices": ["PFILLER10A_G", "PFILLER20A_G", "PFILLER10_G", "PFILLER20_G"],
   "analog_filler": ["PFILLER10A_G", "PFILLER20A_G"],
   "digital_filler": ["PFILLER10_G", "PFILLER20_G"],
-  "cut_devices": ["PRCUTA_G"],
+  "cut_devices": ["PRCUTA_G", "PRCUT_G"],
   "device_masters": {
     "default_library": "tphn28hpcpgv18",
     "default_view": "layout",

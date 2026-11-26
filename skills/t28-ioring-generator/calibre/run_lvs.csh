@@ -304,7 +304,11 @@ echo "LM_LICENSE_FILE: $LM_LICENSE_FILE"
 
 # Step 3: Run Calibre LVS
 echo "Step 3: Running Calibre LVS..."
-$MGC_HOME/bin/calibre -lvs -hier -turbo -hyper -nowait $tmpRuleFile
+set run_options = (-turbo -hyper)
+if ( $?AMS_CALIBRE_THREADS ) then
+    set run_options = (-turbo "$AMS_CALIBRE_THREADS")
+endif
+$MGC_HOME/bin/calibre -lvs -hier $run_options -nowait $tmpRuleFile
 
 # Check if Calibre LVS was successful
 if ($status != 0) then

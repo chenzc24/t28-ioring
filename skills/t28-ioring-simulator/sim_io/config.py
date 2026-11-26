@@ -6,6 +6,7 @@ import os
 import sys
 from datetime import datetime
 from pathlib import Path
+from uuid import uuid4
 
 
 SKILL_ROOT = Path(__file__).resolve().parent.parent
@@ -64,7 +65,9 @@ def write_latest_run(run_dir: Path) -> None:
     """Write the latest-run marker under output/simulation."""
     marker = latest_run_path()
     marker.parent.mkdir(parents=True, exist_ok=True)
-    marker.write_text(str(run_dir.resolve(strict=False)), encoding="utf-8")
+    staging = marker.with_name(f".latest_{uuid4().hex}")
+    staging.write_text(str(run_dir.resolve(strict=False)), encoding="utf-8")
+    staging.replace(marker)
 
 
 def read_latest_run() -> Path:
@@ -81,7 +84,7 @@ def read_latest_run() -> Path:
 def create_run_dir() -> Path:
     """Create a timestamped simulator run directory."""
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-    run_dir = resolve_simulation_root() / ts
+    run_dir = resolve_simulation_root() / f"{ts}_{uuid4().hex[:8]}"
     run_dir.mkdir(parents=True, exist_ok=True)
     write_latest_run(run_dir)
     return run_dir

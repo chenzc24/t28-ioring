@@ -66,7 +66,9 @@ def main():
     if len(sys.argv) > 3:
         view = sys.argv[3]
     if len(sys.argv) > 4:
-        run_dir = sys.argv[4]
+        run_dir = sys.argv[4] if sys.argv[4] not in ("T28", "28") else None
+    if len(sys.argv) > 5:
+        run_dir = sys.argv[5]
 
     tech_node = "T28"  # Only T28 is supported (T180 removed)
 
@@ -112,41 +114,21 @@ def main():
         microseconds = int(time.time() * 1000000) % 1000000
         process_id = os.getpid()
 
-        if run_dir:
-            pex_dir = Path(run_dir)
-        else:
-            pex_dir = output_root / f"pex_{timestamp_str}_{process_id}_{microseconds}"
-
-        print(f"   PEX output directory: {pex_dir}")
-
-        # Note: run_pex.csh expects arguments in order: <library> <topCell> [view] [tech_node] [runDir]
-        result = execute_csh_script(str(script_path), lib, cell, view, node, str(pex_dir), timeout=900)
-        print(f"   Script execution completed")
-
-        if not result or str(result).startswith("Remote csh execution failed"):
-            print(f"[ERROR] Error: PEX script execution failed")
-            print(f"   Command: {script_path}")
-            print(f"   Arguments: {lib} {cell} {view} {node}")
-            print(f"   Result: {result}")
-            print(f"   This may indicate:")
-            print(f"     1. Calibre PEX is not installed or not in PATH")
-            print(f"     2. Calibre PEX rules file is missing")
-            print(f"     3. Insufficient permissions")
-            print(f"     4. Network/daemon issues")
-            print(f"     5. Cadence/Mentor environment not sourced correctly")
-            print(f"   Full output:")
-            print(str(result))
-            # Attempt to remove the pex output directory before returning
-            try:
-                if pex_dir.exists():
-                    shutil.rmtree(pex_dir)
-            except Exception:
-                pass
-            return "PEX process failed"
-
-        print(f"   Script result: Success")
-
+        run_root = output_root / "pex" / f"{timestamp_str}_{process_id}_{microseconds}"
+        run_root.mkdir(parents=True, exist_ok=False)
+        os.environ["AMS_OUTPUT_ROOT"] = str(run_root)
+        pex_dir = run_root / "pex"
+        result = execute_csh_script(str(script_path), lib, cell, view, node, timeout=900)
+        if "Calibre flow completed successfully." not in str(result).splitlines():
+            raise RuntimeError(f"PEX failed. Evidence under {run_root}: {str(result)[-1000:]}")
         netlist_file = pex_dir / f"{cell}.pex.netlist"
+        if not netlist_file.is_file() or netlist_file.stat().st_size == 0:
+            raise RuntimeError(f"Missing extracted netlist: {netlist_file}")
+        if run_dir:
+            target = Path(run_dir)
+            shutil.copytree(pex_dir, target, dirs_exist_ok=True)
+            pex_dir = target
+            netlist_file = target / netlist_file.name
         log_file = pex_dir / f"PIPO.LOG.{cell}"
 
         # Generate report
@@ -181,34 +163,8 @@ def main():
             f.write("\n" + parse_pex_capacitance(netlist_file) + "\n")
             f.write("\n" + "=" * 50 + "\n")
 
-        # Return report content
-        try:
-            with open(report_file, 'r', encoding='utf-8') as f:
-                report_content = f.read()
-            # Attempt to remove the pex output directory before returning
-            try:
-                if pex_dir.exists():
-                    shutil.rmtree(pex_dir)
-            except Exception:
-                pass
-            print("\n".join([
-                "[OK] PEX process completed!",
-                f"\nReport location: {report_file}",
-                "\nReport content:",
-                "=" * 50,
-                report_content,
-                "=" * 50,
-            ]))
-            sys.exit(0)
-        except Exception as e:
-            # Attempt to remove the pex output directory before returning
-            try:
-                if pex_dir.exists():
-                    shutil.rmtree(pex_dir)
-            except Exception:
-                pass
-            print(f"[OK] PEX process completed! Report generated but reading failed: {e}")
-            sys.exit(0)
+        print(f"[OK] Extracted netlist: {netlist_file}")
+        print(f"Report: {report_file}")
 
     except FileNotFoundError as e:
         print(f"[ERROR] Error: File not found - {e}")

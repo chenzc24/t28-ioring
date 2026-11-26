@@ -9,6 +9,7 @@ Step 3d: parse_results()  — measurement extraction from PSF data
 
 from __future__ import annotations
 
+import base64
 import json
 import os
 import re
@@ -17,6 +18,7 @@ import sys
 from dataclasses import dataclass, asdict, field
 from pathlib import Path
 from typing import Optional
+from uuid import uuid4
 
 from virtuoso_bridge import VirtuosoClient
 from virtuoso_bridge.models import ExecutionStatus, SimulationResult
@@ -34,7 +36,7 @@ from sim_io.config import create_run_dir
 _SIM_IO = Path(__file__).resolve().parents[2]
 
 # Remote directory for si batch netlist export
-_SI_REMOTE_DIR = "/tmp/sim_io_si_run"
+
 
 # si.env template path
 _SI_ENV_TEMPLATE = _SIM_IO / "templates" / "si_spectre.env"
@@ -111,14 +113,28 @@ def _substitute_si_env(template: str, *, library: str, top_cell: str, run_dir: s
 
 # ── Spectre CSHRC Auto-generation ───────────────────────────────
 
-_CSHRC_REMOTE_PATH = "/tmp/sim_io_spectre_setup.csh"
+def _upload_setup(client, contents: str, remote_path: str) -> None:
+    """A stale remote file must never hide a failed setup transfer."""
+    tunnel = client._tunnel
+    if tunnel is not None:
+        result = tunnel.upload_text(contents, remote_path)
+        if result.returncode != 0:
+            raise RuntimeError(f"Upload to {remote_path} failed (rc={result.returncode}): {result.stderr}")
+        return
+
+    encoded = base64.b64encode(contents.encode("utf-8")).decode("ascii")
+    parent = remote_path.rsplit("/", 1)[0]
+    command = f"mkdir -p {shlex.quote(parent)} && echo {encoded} | base64 -d > {shlex.quote(remote_path)}"
+    result = client.execute_skill(f'sh({json.dumps(command)})', timeout=30)
+    if result.errors or str(result.output).strip() != "0":
+        raise RuntimeError(f"SKILL upload to {remote_path} failed: {result.errors or result.output}")
 
 
 def ensure_spectre_cshrc(site: SiteConfig, client: VirtuosoClient) -> str:
     """Auto-generate and upload a cshrc for Spectre execution.
 
     Reads SiteConfig for MMSIM_ROOT and license vars, writes a complete cshrc
-    to /tmp/sim_io_spectre_setup.csh on the remote, and sets VB_CADENCE_CSHRC.
+    to a run-specific directory on the remote, and sets VB_CADENCE_CSHRC.
 
     Returns the remote cshrc path.
     """
@@ -160,56 +176,10 @@ def ensure_spectre_cshrc(site: SiteConfig, client: VirtuosoClient) -> str:
 
     cshrc_content = "\n".join(lines)
 
-    def _verify_cshrc_exists() -> bool:
-        if tunnel is not None:
-            check = tunnel.run_command(
-                f"test -s {shlex.quote(_CSHRC_REMOTE_PATH)}",
-                timeout=15,
-            )
-            return check.returncode == 0
-        try:
-            result = client.execute_skill(
-                f'isFile("{_CSHRC_REMOTE_PATH}")',
-                timeout=10,
-            )
-            return bool(result.output and "t" in result.output.lower())
-        except Exception:
-            return False
-
-    # Upload to remote via tunnel
-    tunnel = client._tunnel
-    if tunnel is not None:
-        try:
-            tunnel.upload_text(cshrc_content, _CSHRC_REMOTE_PATH)
-            print(f"[step3c] Uploaded spectre cshrc to {_CSHRC_REMOTE_PATH}")
-        except Exception as e:
-            print(f"[step3c] WARNING: Failed to upload cshrc: {e}")
-    else:
-        # Fallback: write via SKILL shell
-        try:
-            escaped = cshrc_content.replace("\\", "\\\\").replace("'", "\\'").replace('"', '\\"')
-            client.execute_skill(f'sh("cat > {_CSHRC_REMOTE_PATH} << \'CSHRC_EOF\'\\n{cshrc_content}CSHRC_EOF")')
-            print(f"[step3c] Wrote spectre cshrc via SKILL to {_CSHRC_REMOTE_PATH}")
-        except Exception as e:
-            print(f"[step3c] WARNING: Failed to write cshrc via SKILL: {e}")
-
-    if not _verify_cshrc_exists():
-        print(f"[step3c] WARNING: Spectre cshrc missing after upload; retrying {_CSHRC_REMOTE_PATH}")
-        if tunnel is not None:
-            tunnel.upload_text(cshrc_content, _CSHRC_REMOTE_PATH)
-        else:
-            client.execute_skill(
-                f'sh("cat > {_CSHRC_REMOTE_PATH} << \'CSHRC_EOF\'\\n{cshrc_content}CSHRC_EOF")',
-                timeout=20,
-            )
-        if not _verify_cshrc_exists():
-            raise RuntimeError(f"Spectre cshrc upload verification failed: {_CSHRC_REMOTE_PATH}")
-
-    # Set VB_CADENCE_CSHRC so SpectreSimulator.from_env() picks it up
-    os.environ["VB_CADENCE_CSHRC"] = _CSHRC_REMOTE_PATH
-    print(f"[step3c] Set VB_CADENCE_CSHRC={_CSHRC_REMOTE_PATH}")
-
-    return _CSHRC_REMOTE_PATH
+    remote_path = f"/tmp/sim_io_{uuid4().hex}/spectre_setup.csh"
+    _upload_setup(client, cshrc_content, remote_path)
+    os.environ["VB_CADENCE_CSHRC"] = remote_path
+    return remote_path
 
 
 # ── cds.lib Helper ──────────────────────────────────────────────
@@ -315,18 +285,8 @@ def export_netlist(
     if r.errors:
         print(f"[step3a] WARNING: schCheck/save failed: {r.errors}")
 
-    # 1. Create remote run directory
-    r = client.execute_skill(f'sh("mkdir -p {_SI_REMOTE_DIR}")')
-
-    # 1.5. Clean stale output from previous runs
+    remote_dir = f"/tmp/sim_io_si_{uuid4().hex}"
     tunnel = client._tunnel
-    if tunnel is not None:
-        try:
-            tunnel.run_command(f"rm -rf {_SI_REMOTE_DIR}/*", timeout=15)
-        except Exception as e:
-            print(f"[step3a] WARNING: Failed to clean remote si dir: {e}")
-    else:
-        client.execute_skill(f'sh("rm -rf {_SI_REMOTE_DIR}/*")')
 
     # 1.6. Ensure cds.lib includes analogLib and basic definitions
     # These are required by si for vsource, capacitor, gnd, noConn etc.
@@ -338,7 +298,7 @@ def export_netlist(
         template,
         library=lib,
         top_cell=tb_cell,
-        run_dir=_SI_REMOTE_DIR,
+        run_dir=remote_dir,
     )
 
     # NOTE: simInitEnvWithArgs() is intentionally SKIPPED because:
@@ -347,13 +307,7 @@ def export_netlist(
     #   3. We overwrite si.env with our own template anyway
     # The directory is already created above, so we just upload our si.env.
 
-    tunnel = client._tunnel
-    if tunnel is not None:
-        tunnel.upload_text(si_env_content, f"{_SI_REMOTE_DIR}/si.env")
-    else:
-        client.execute_skill(
-            f'csh("echo \'{si_env_content}\' > {_SI_REMOTE_DIR}/si.env")'
-        )
+    _upload_setup(client, si_env_content, f"{remote_dir}/si.env")
 
     # 3. Resolve license vars from site config.
     license_env: dict[str, str] = {}
@@ -369,9 +323,6 @@ def export_netlist(
             + ", ".join(missing)
             + ". Set spectre.lm_license_file and spectre.cds_lic_file in _local/site.yaml."
         )
-
-    print(f"[step3a] License: LM_LICENSE_FILE={license_env.get('LM_LICENSE_FILE', '(missing)')}, "
-          f"CDS_LIC_FILE={license_env.get('CDS_LIC_FILE', '(missing)')}")
 
     # 3.5. Pre-flight: verify essential libraries are resolvable via cds.lib
     for _essential_lib in ("analogLib", "basic"):
@@ -396,33 +347,33 @@ def export_netlist(
     env_setup = "; ".join(export_lines)
     si_cmd = (
         f'{env_setup}; '
-        f'cd {_SI_REMOTE_DIR}; '
-        f'{site.si_bin} -batch -cdslib {site.cds_lib} -command nl 2>&1 | tail -20'
+        f'cd {remote_dir}; '
+        f'{site.si_bin} -batch -cdslib {site.cds_lib} -command nl 2>&1'
     )
 
     if tunnel is not None:
         r = tunnel.run_command(si_cmd, timeout=300)
         output = r.stdout or ""
-        if "ERROR" in output:
-            print(f"[step3a] si output:\n{output}")
+        if r.returncode != 0:
+            raise RuntimeError(f"si failed (rc={r.returncode}): {output[-1500:]}")
     else:
         r = client.run_shell_command(
-            f'cd {_SI_REMOTE_DIR}; {site.si_bin} -batch -cdslib {site.cds_lib} -command nl',
+            f'cd {remote_dir}; {site.si_bin} -batch -cdslib {site.cds_lib} -command nl',
             timeout=300,
         )
         if r.errors:
-            print(f"[step3a] WARNING: si returned errors: {r.errors}")
+            raise RuntimeError(f"si returned errors: {r.errors}")
 
     # 5. Download netlist
     spectre_dir = _spectre_run_dir(run_dir)
     local_netlist = spectre_dir / "netlist.scs"
-    r = client.download_file(f"{_SI_REMOTE_DIR}/netlist", str(local_netlist))
+    r = client.download_file(f"{remote_dir}/netlist", str(local_netlist))
     if not r.ok:
         # Try alternate output location
-        alt_path = f"{_SI_REMOTE_DIR}/netlist/netlist"
+        alt_path = f"{remote_dir}/netlist/netlist"
         r = client.download_file(alt_path, str(local_netlist))
 
-    if not local_netlist.exists():
+    if not r.ok or not local_netlist.is_file() or local_netlist.stat().st_size == 0:
         print(f"[step3a] ERROR: Failed to download netlist")
         return None
 

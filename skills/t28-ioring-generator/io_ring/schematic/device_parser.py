@@ -953,6 +953,8 @@ class DeviceTemplateManager:
     
     def get_pin_config(self, device_type, pin_name, pad_name, io_type='input', pin_label=None, vdd_label=None, vss_label=None, vddpst_label=None, vsspst_label=None):
         """Get default configuration based on device type and pin name, auxiliary pins prioritize main power/ground labels."""
+        if device_type.startswith("PVSS3DGZ_"):
+            device_type = device_type.replace("PVSS3DGZ_", "PVSS1DGZ_", 1)
         if device_type in self.device_pin_rules:
             if pin_name in self.device_pin_rules[device_type]:
                 rule = self.device_pin_rules[device_type][pin_name].copy()
