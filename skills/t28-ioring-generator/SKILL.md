@@ -115,6 +115,14 @@ python skills/t28-ioring-generator/scripts/prepare_ring.py io_ring_semantic_inte
 
 Each invocation creates its own run directory and prints the path to `run.json`. Read the manifest for the input digest, generated filenames, design recommendations and pending integration measurements. A failed stage returns nonzero. A prepared run resumes at Step 7 if live OA execution was requested. If an editor or an existing intermediate file is involved, use the individual stages below.
 
+For a plan you derived from text, an image or a draft, review the first prepared run before live execution:
+
+1. Read `gates` and `rule_review` in `run.json`.
+2. For each advisory, either change the plan or record why the design keeps it (for example, a user-specified placement).
+3. Rerun `prepare_ring.py` after any plan change and repeat until every remaining advisory has a recorded reason.
+
+Report the remaining advisories and pending items with the run. A plan supplied by the user is compiled as given; report its advisories without changing it.
+
 Run the enrichment engine:
 
 ```bash

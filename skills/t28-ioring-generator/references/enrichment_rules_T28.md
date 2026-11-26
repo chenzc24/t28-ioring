@@ -26,7 +26,23 @@ Start with one provisional analog domain when the analog signals share one ident
 
 Use `PVSS3DGZ` where the design intentionally joins both grounds. For digital signals, `PDDW16SDGZ` is a starting point when its library characteristics suit the draft. Select `PRUW08SDGZ` when the specified master or drive requirement calls for it. Set `direction` from the signal function on each outer or inner digital IO pad. The enrichment engine uses the wire table to resolve pins from those declared choices, including the direction-dependent configuration pins.
 
-Before handing off the plan, check that each requested pad position is present, each provider net appears on a matching supply pad, and each digital IO direction matches the available interface evidence. Record inferred choices and unresolved fields. For a specific ambiguity that would change connectivity, use the [clarification prompts](wizard_T28.md) and fold any answer into the plan. Continue the parts of the requested work that have enough information.
+### Check the plan before handing it off
+
+Walk through these items before writing the semantic intent. Each one matches a check the engine runs, so catching it here saves a round trip.
+
+| # | Check | Engine check |
+|---|---|---|
+| 1 | Every requested pad position is present once, and duplicate names keep their own positions. | G1 |
+| 2 | Every provider net named in `domains` appears on a pad with the matching supply master: 3A/3AC for analog rails, the digital masters in the rail-role table above for digital rails. | G9 |
+| 3 | Analog masters sit in analog domains and digital masters in digital domains. | Input error |
+| 4 | Every functional digital pad, outer or inner, has a `direction` that matches the interface evidence. | G6 |
+| 5 | Each digital domain with functional IO has exactly one `PVDD2POC`; a supply-only digital domain has none and sets `poc_grounded`. | G11 |
+| 6 | No domain mixes `PVDD3A` with `PVDD3AC`, or `PVSS2A` with `PVSS2AC`. | G13, G12 |
+| 7 | Each domain records `core_voltage` and `io_voltage`, or the plan lists them as pending. | G13 |
+
+Record inferred choices and unresolved fields. For a specific ambiguity that would change connectivity, use the [clarification prompts](wizard_T28.md) and fold any answer into the plan. Continue the parts of the requested work that have enough information.
+
+After the first plan compiles, review its advisories as described in [Step 3 of the skill](../SKILL.md#step-3-generate-semantic-intent-and-enrich).
 
 ## Input fields
 
