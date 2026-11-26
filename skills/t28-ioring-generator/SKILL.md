@@ -48,6 +48,7 @@ Use the repository checkout containing `tools/t28_config_check.py` and the sibli
 | Text requirements only | Step 1 |
 | Image input | Read `references/image_vision_instruction.md`, then Step 1 |
 | Draft intent graph provided | Step 3 |
+| Semantic intent JSON provided | Step 3, compile the supplied plan |
 | Final intent graph provided | Step 4 |
 | Confirmed config provided | Step 6 |
 
@@ -64,7 +65,7 @@ Read structural requirements:
 - inner-pad insertion directives
 - library and cell names
 
-Use `references/draft_builder_T28.md`.
+Use [Draft builder](references/draft_builder_T28.md) to lay out the requested positions. For ambiguous fixed dimensions or starting side, see [Clarify geometry](references/wizard_T28.md#clarify-geometry).
 
 Write:
 
@@ -96,12 +97,7 @@ The draft editor may add device hints and structural edits. Merge those edits ba
 
 ## Step 3: Generate Semantic Intent and Enrich
 
-Read:
-
-- `references/enrichment_rules_T28.md`
-- draft JSON
-- original user prompt
-- draft editor output if Step 2 ran
+For a text or image request or a structural draft, use [Classify signals and assign domains](references/enrichment_rules_T28.md#classify-signals-and-assign-domains) with the original requirements and any draft editor changes. This step selects the devices, directions and rail roles. When the user provides a semantic plan, compile their choices directly.
 
 Write semantic intent:
 
